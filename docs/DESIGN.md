@@ -27,6 +27,8 @@ rows added to each training fold (0 = not used).
 | xgb_raw_o1 | 1 | XGBoost, depth 6 | raw | 1 | 0.94681 | 0.0033 |
 | lgb_raw_o1 | 1 | LightGBM, 31 leaves | raw | 1 | 0.94680 | 0.0032 |
 | xgb_ogte_o1 | 1 | XGBoost, depth 6 | raw + original per-value rates | 1 | 0.94676 | 0.0036 |
+| cat_ogte_o1 | 1 | CatBoost, depth 6 | raw + original per-value rates | 1 | 0.94654 | 0.0035 |
+| cat_raw_o1 | 1 | CatBoost, depth 6 | raw | 1 | 0.94610 | 0.0031 |
 | lgb_combo_o1 | 1 | LightGBM, 31 leaves | + ratios, flag count | 1 | 0.94659 | 0.0034 |
 | lgb_count_o1 | 1 | LightGBM, 31 leaves | + value frequencies | 1 | 0.94647 | 0.0036 |
 | lgb_ogte_o1 | 1 | LightGBM, 31 leaves | raw + original per-value rates | 1 | 0.94633 | 0.0034 |
@@ -214,7 +216,10 @@ Stack of `r3_glmboost r3_lgb_l4 r3_glm xgb_digits_te2_d2 lgb_digits_te2_l4 lgb_r
 | hill climbing | 0.95057 | |
 
 Only +0.00007 over `r3_glmboost` alone (weights 0.68 GLM boost, 0.32 4-leaf trees, -0.13 GLM): members built
-on the same encodings agree too closely. The next gains need members that differ, not a better stacker. Round four changes one thing per run against round three:
+on the same encodings agree too closely. The next gains need members that differ, not a better stacker.
+
+Round one's CatBoost runs (`jobs/cat1.txt`, depth 6, about 75 min each): `cat_raw_o1` 0.94610 and
+`cat_ogte_o1` 0.94654. Adding `cat_ogte_o1` to the round-three stack gives 0.95060 (weight 0.03), no gain. Round four changes one thing per run against round three:
 
 - `jobs/r4a.txt`, GLM: C 0.003 and 0.03; cubic splines (8 knots) on quantile-transformed numeric
   columns; 10-way instead of 5-way inner cross-fitting of the encoder.
