@@ -102,3 +102,22 @@ OOF ROC-AUC unless stated; "public" is the public leaderboard.
 Consequence for us: round two (`lgb2a`, `lgb2b`) uses sklearn's `smooth="auto"` and only end digits,
 so expect it to land short of 0.950. Round three switches to the m-estimate encoder and the full digit
 key set, then adds the GLM and GLM-boost members.
+
+## D8. FinTFM probe: balanced context is best, but it does not lift the trees (2026-11-16)
+
+`jobs/tfm1.txt`, fintfm 8a25b4c, published checkpoint, 2,000-row context drawn from fold 0's training
+rows plus the original rows, scored on 20,000 stratified rows of fold 0 (about 334 fraud), Kaggle CPU:
+
+| Context strategy | AUC | Seconds |
+| --- | --- | --- |
+| uniform | 0.89958 | 295 |
+| balanced | 0.90679 | 285 |
+| hybrid | 0.89648 | 281 |
+| retrieval | 0.78609 | 673 |
+
+Throughput was about 70 rows/s, against about 20 rows/s for the 2026-11-03 kernel (fintfm 4ad16a8).
+
+Stack check on the same 20,000 rows: rank correlation with `lgb_raw_o0` is 0.864. A blend weight picked
+on one random half and scored on the other changes AUC by -0.00043 and +0.00014 (LightGBM), -0.00047 and
+0.00000 (XGBoost). No gain, so FinTFM is not run in full for the competition stack; it stays the subject
+of the starter notebook (`notebooks/fintfm-starter/`).

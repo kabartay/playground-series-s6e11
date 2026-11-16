@@ -1,0 +1,15 @@
+{
+  "id": "muhakabartay/fintfm-starter-playground-series-s6e11",
+  "title": "FinTFM Starter: Playground Series S6E11",
+  "code_file": "fintfm-starter-s6e11.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": [],
+  "competition_sources": ["playground-series-s6e11"],
+  "kernel_sources": [],
+  "model_sources": []
+}
