@@ -121,3 +121,22 @@ Stack check on the same 20,000 rows: rank correlation with `lgb_raw_o0` is 0.864
 on one random half and scored on the other changes AUC by -0.00043 and +0.00014 (LightGBM), -0.00047 and
 0.00000 (XGBoost). No gain, so FinTFM is not run in full for the competition stack; it stays the subject
 of the starter notebook (`notebooks/fintfm-starter/`).
+
+## D9. Round two (lgb2a) and the round-three set-up (2026-11-16)
+
+31-leaf LightGBM, no original rows, sklearn `TargetEncoder(smooth="auto")`:
+
+| Run | Features | CV AUC | Folds |
+| --- | --- | --- | --- |
+| lgb_digits | raw + first and second decimal digits | 0.94712 | 0.94561 0.94934 0.95168 0.94725 0.94198 |
+| lgb_digits_te1 | + in-fold TE of exact values, rounded keys, cents | 0.94854 | 0.94747 0.94991 0.95370 0.94910 0.94282 |
+| lgb_digits_te2 | + 45 top-10 pairs | 0.94845 | 0.94754 0.95026 0.95338 0.94882 0.94290 |
+
+Target encoding adds +0.0016 over raw (0.94690) and lifts all five folds; pairs add nothing, as the
+public notebooks found (D7).
+
+Round three (`jobs/r3a.txt`, `jobs/r3b.txt`) uses m-estimate smoothing 20, adds the digit-key family
+(`--keys full`: integer part, tens, 0.1 resolution, first one and two significant digits, printed length)
+and tests a GLM (L2 logistic, C=0.01, on logit encodings plus one-hot) and GLM boost (4-leaf LightGBM with
+`init_score` from the in-fold GLM). One-fold smoke on fold 0: GLM 0.94887; GLM boost with only 30 trees
+0.94901, against 0.94747 for lgb_digits_te1 on the same fold.
