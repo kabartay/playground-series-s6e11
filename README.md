@@ -16,10 +16,10 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95071** (nested CV); best single model 0.95062
+> **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95079** (nested CV); best single model 0.95062
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values
-> and digit keys, 3 seeds). Last submission: CV 0.94952, public 0.94982. Round five, which combines round
-> four's winners, is running.
+> and digit keys, 3 seeds). Last submission: CV 0.94952, public 0.94982. Round six (CatBoost GLM boost
+> seeds and depth, a slower MLP) is running.
 
 ## Contents
 
@@ -87,7 +87,9 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | Logistic stack: GLM boost (3 seeds), 4-leaf LightGBM, spline GLM, raw 4-leaf LightGBM, depth-2 XGBoost | | 0.95066 |
 | XGBoost depth 2 / CatBoost depth 4 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95049 / 0.95057 |
 | The same stack plus XGBoost and CatBoost GLM boost | | **0.95071** |
-| Round five: GLM boost from the spline GLM (3 seeds), finer splines, MLP member | same | running |
+| MLP (64-32) on the spline GLM design | logit encodings + splines | 0.94715 |
+| Logistic stack of 9: the above plus MLP and spline-GLM boost | | **0.95079** |
+| Round six: CatBoost GLM boost seeds and depth, slower MLP | same | running |
 
 Leaderboard submissions:
 
@@ -113,6 +115,10 @@ Leaderboard submissions:
 | GLM boost: learning rate 0.015 with feature fraction 0.3 | -0.00001 | dropped |
 | GLM boost: 8 leaves instead of 4 | -0.00006 | dropped |
 | XGBoost and CatBoost GLM boost as extra stack members | stack +0.00005 | adopted for diversity |
+| GLM boost started from the spline GLM | -0.00002 alone; stack +0.00006 | stack member |
+| 4-leaf LightGBM, 3 seeds | +0.0001 | adopted |
+| GLM splines with 16 knots instead of 8 | -0.00009 | dropped |
+| MLP on the spline GLM design | 0.94715 alone; stack +0.00003 | stack member |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |

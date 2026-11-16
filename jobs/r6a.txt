@@ -1,0 +1,2 @@
+# Round six: CatBoost GLM boost carries the largest stack weight; average 3 seeds
+--model cat --fe raw --te single --keys full --te-smooth 20 --orig 0 --offset glm --seeds 3 --name r6_gbc_d4_s3 --params {"depth":4,"learning_rate":0.05,"iterations":20000}

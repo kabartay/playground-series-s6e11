@@ -11,7 +11,13 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | **0.95071** | |
+| stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | **0.95079** | |
+| stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
+| r5_gb_spl8_s3 | 5 | GLM boost from the spline GLM, 3 seeds | as r3_glmboost | 0 | 0.95060 | 0.0033 |
+| r5_lgb_l4_s3 | 5 | LightGBM, 4 leaves, 3 seeds | as r3_lgb_l4 | 0 | 0.95033 | 0.0034 |
+| r5_glm_spl16 | 5 | GLM + splines (16 knots) | logit TE + one-hot | 0 | 0.95006 | 0.0033 |
+| r5_mlp | 5 | MLP 64-32 on the spline GLM design, 3 seeds | logit TE + one-hot + splines | 0 | 0.94715 | 0.0035 |
+| r5_mlp_a1e2 | 5 | MLP 32, alpha 0.01, 3 seeds | as r5_mlp | 0 | 0.94578 | 0.0037 |
 | stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | 0.95066 | |
 | r4_gb_s3 | 4 | GLM boost, 3 seeds averaged | as r3_glmboost | 0 | 0.95062 | 0.0034 |
 | stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | 0.95063 | |
@@ -266,3 +272,34 @@ weight (0.26, against 0.21 for LightGBM GLM boost and 0.16 for XGBoost GLM boost
 Round five: `jobs/r5a.txt` puts both winners together (GLM boost from the spline GLM, 3 seeds);
 `jobs/r5b.txt` tries GLM splines with 16 knots, 4-leaf trees with 3 seeds, and a small MLP on the spline
 GLM design as a different kind of member.
+
+## D13. Round five
+
+| Run | Change | CV AUC | Against | Verdict |
+| --- | --- | --- | --- | --- |
+| r5_gb_spl8_s3 | GLM boost from the spline GLM, 3 seeds | 0.95060 | r4_gb_s3 0.95062, 3 of 5 folds up | no single gain; kept as a stack member |
+| r5_lgb_l4_s3 | 4-leaf LightGBM, 3 seeds | 0.95033 | r3_lgb_l4 0.95023, 3 up, 1 tie, 1 down | replaces r3_lgb_l4 |
+| r5_glm_spl16 | 16 spline knots | 0.95006 | r4_glm_spl8 0.95015 | dropped |
+| r5_mlp | MLP 64-32 on the spline GLM design | 0.94715 | | weak alone; stack member |
+| r5_mlp_a1e2 | MLP 32, alpha 0.01 | 0.94578 | | dropped |
+
+A spline GLM is a better model than the plain GLM (D12) but not a better starting point for the trees:
+the trees already recover the numeric shapes. The MLP stops after 8-9 epochs and is weak alone, yet it
+gets stack weight 0.08 because it errs differently.
+
+Stacks, logistic C=0.1, nested CV (base: `r4_gb_s3 r5_lgb_l4_s3 r4_glm_spl8 lgb_raw_l4 xgb_digits_te2_d2
+r4_gbx_d2 r4_gbc_d4`):
+
+| Members | Nested CV | Rank average |
+| --- | --- | --- |
+| base (7) | 0.95070 | 0.95072 |
+| + r5_mlp | 0.95073 | 0.95076 |
+| + r5_mlp, r5_gb_spl8_s3 | **0.95079** | 0.95078 |
+| + both MLPs, r5_gb_spl8_s3 | 0.95078 | 0.95071 |
+
+The 9-member stack (folds 0.95006 0.95156 0.95575 0.95178 0.94538) is up on all five folds against the
+7-member round-four stack, and is written to `submissions/stack_r5.csv`. Four member sets were compared on
+the same folds, so a selection effect of the order of 0.00002 is possible.
+
+Round six: CatBoost GLM boost with 3 seeds (`jobs/r6a.txt`), depth 6 and a slower, wider MLP
+(`jobs/r6b.txt`).
