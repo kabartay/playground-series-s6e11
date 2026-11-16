@@ -26,3 +26,4 @@
 | --- | --- | --- | --- | --- |
 | 2026-11-03 | `submission_lightgbm.csv` | 0.94578 | 0.9427 (single 20% holdout) | LightGBM 500 rounds, lr 0.05, defaults otherwise |
 | 2026-11-03 | `submission_fintfm.csv` | 0.88790 | 0.8759 (single 20% holdout) | FinTFM zero-shot, published checkpoint, 2,000-row uniform context |
+| 2026-11-16 | `stack_r2.csv` | 0.94982 | 0.94952 (nested 5-fold CV) | logistic stack of 7 round-one and round-two models (D10) |

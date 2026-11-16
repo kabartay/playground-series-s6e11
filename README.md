@@ -85,6 +85,7 @@ Leaderboard submissions:
 | :--- | :--- | :--- | :--- |
 | 2026-11-03 | LightGBM, default settings | 0.9427 (20% holdout) | 0.94578 |
 | 2026-11-03 | FinTFM zero-shot, 2,000-row context | 0.8759 (20% holdout) | 0.88790 |
+| 2026-11-16 | Logistic stack of 7 round-one and round-two models | 0.94952 (5-fold CV) | 0.94982 |
 
 ## What worked and what did not
 
