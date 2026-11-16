@@ -77,7 +77,10 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | LightGBM, 4 leaves | same features + pairs | 0.94923 |
 | XGBoost, depth 2 | same features + pairs | 0.94926 |
 | Logistic stack of 7 round-one and round-two models | | 0.94952 |
-| GLM boost: 4-leaf LightGBM from the GLM's logit | m-estimate encoding + full digit keys | **0.95056** |
+| GLM (L2 logistic) | m-estimate encoding + full digit keys | 0.94987 |
+| LightGBM, 4 leaves | m-estimate encoding + full digit keys | 0.95023 |
+| GLM boost: 4-leaf LightGBM from the GLM's logit | m-estimate encoding + full digit keys | 0.95056 |
+| Logistic stack of round-three and round-two models | | **0.95063** |
 | Round four: GLM, GLM boost and XGBoost/CatBoost GLM boost variants | same | running |
 
 Leaderboard submissions:
@@ -96,6 +99,7 @@ Leaderboard submissions:
 | Very shallow trees (4 leaves or depth 2) instead of 31 leaves | +0.0006 to +0.0008, 5 of 5 folds | adopted |
 | GLM boost with m-estimate encoding and full digit keys, against the best round-two tree | +0.0013, 5 of 5 folds | adopted |
 | Stacker choice (rank average, logistic at C 0.01-1, hill climbing) | within 0.00002 of each other | members matter, not the stacker |
+| Stacking round-three models together | +0.00007 over GLM boost alone | members too alike; need diversity |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |

@@ -11,7 +11,10 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | **0.95056** | 0.0034 |
+| stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | **0.95063** | |
+| r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95056 | 0.0034 |
+| r3_lgb_l4 | 3 | LightGBM, 4 leaves | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95023 | 0.0035 |
+| r3_glm | 3 | L2 logistic, C=0.01 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
 | stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
 | xgb_digits_te2_d2 | 2 | XGBoost, depth 2 | raw + digits + TE + pairs | 0 | 0.94926 | 0.0034 |
 | lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
@@ -29,7 +32,7 @@ rows added to each training fold (0 = not used).
 | lgb_ogte_o1 | 1 | LightGBM, 31 leaves | raw + original per-value rates | 1 | 0.94633 | 0.0034 |
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
 
-Round three's GLM and plain 4-leaf runs (`r3a`) and round four (D11) are running.
+Round four (D11) is running.
 
 ## D1. Validation
 
@@ -190,7 +193,28 @@ lands within 0.00002:
 | logistic C=1 | 0.94952 |
 | greedy hill climbing on standardised logits | 0.94952 |
 
-Gains therefore have to come from the members. Round four changes one thing per run against round three:
+Gains therefore have to come from the members.
+
+Round three's other runs (`jobs/r3a.txt`) reproduce the published levels: GLM 0.94987 (folds 0.94887
+0.95045 0.95511 0.95059 0.94456, 25 iterations, 148 s) and 4-leaf LightGBM 0.95023 (folds 0.94981 0.95106
+0.95515 0.95139 0.94426, 1,365-2,505 trees, 828 s).
+
+A bug found on the way: GLM and GLM-boost runs save logits, and `stack.py` clipped every input to
+[1e-6, 1-1e-6] before taking the logit, which flattened those runs to near-constants. It now detects
+logit-scale runs, and hill climbing is recalibrated in each fold (it scored 0.94688 pooled while every fold
+was near 0.951). Round-two results are unaffected (all their members are probabilities).
+
+Stack of `r3_glmboost r3_lgb_l4 r3_glm xgb_digits_te2_d2 lgb_digits_te2_l4 lgb_raw_l4`, nested CV:
+
+| Stacker | Nested CV | Folds |
+| --- | --- | --- |
+| rank average | 0.95049 | |
+| logistic C=0.01 | **0.95063** | 0.94998 0.95149 0.95554 0.95160 0.94512 |
+| logistic C=1 | 0.95061 | |
+| hill climbing | 0.95057 | |
+
+Only +0.00007 over `r3_glmboost` alone (weights 0.68 GLM boost, 0.32 4-leaf trees, -0.13 GLM): members built
+on the same encodings agree too closely. The next gains need members that differ, not a better stacker. Round four changes one thing per run against round three:
 
 - `jobs/r4a.txt`, GLM: C 0.003 and 0.03; cubic splines (8 knots) on quantile-transformed numeric
   columns; 10-way instead of 5-way inner cross-fitting of the encoder.

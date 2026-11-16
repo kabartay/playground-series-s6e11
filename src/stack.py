@@ -4,10 +4,11 @@ Usage:
   stack.py lgb_ogte_o1 xgb_ogte_o1 cat_ogte_o1 [--method hill] [--out submissions/stack1.csv]
 
 Stackers: rank average; logistic regression over logit OOF predictions at several C; greedy hill
-climbing (forward selection with replacement on standardised logits, maximising AUC). Each is fitted on
-4 of the members' 5 folds and scored on the 5th, so its CV is honest; `--method` and `--C` choose the one
-that writes the submission. Runs with NaN OOF (probes) are scored only on their non-NaN rows and
-cannot be stacked into a submission.
+climbing (forward selection with replacement on standardised logits, maximising AUC, then a one-feature
+logistic calibration). Runs saved as logits (GLM, GLM boost) are detected and used as they are.
+Each stacker is fitted on 4 of the members' 5 folds and scored on the 5th, so its CV is honest;
+`--method` and `--C` choose the one that writes the submission. Runs with NaN OOF (probes) are scored
+only on their non-NaN rows and cannot be stacked into a submission.
 """
 
 from __future__ import annotations
@@ -31,6 +32,17 @@ def logit(p: np.ndarray) -> np.ndarray:
     return np.log(p / (1 - p))
 
 
+def to_logit(oof: np.ndarray, test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Logit of a run's predictions; runs that already hold logits (GLM, GLM boost) pass through.
+
+    A run is on the logit scale when any OOF value lies outside [0, 1].
+    """
+    v = oof[~np.isnan(oof)]
+    if v.min() < 0 or v.max() > 1:
+        return oof, test
+    return logit(oof), logit(test)
+
+
 def hill_climb(Z: np.ndarray, y: np.ndarray, steps: int = 40) -> np.ndarray:
     """Greedy forward selection with replacement maximising AUC; returns weights summing to 1.
 
@@ -49,6 +61,11 @@ def hill_climb(Z: np.ndarray, y: np.ndarray, steps: int = 40) -> np.ndarray:
         cur, best = cur + Z[:, j], trial[j]
         counts[j] += 1
     return counts / counts.sum()
+
+
+def calibrate(score: np.ndarray, y: np.ndarray) -> LogisticRegression:
+    """One-feature logistic fit, so blends fitted on different folds share one scale when pooled."""
+    return LogisticRegression(C=1e6, max_iter=1000).fit(score[:, None], y)
 
 
 def standardise(Z: np.ndarray, ref: np.ndarray) -> np.ndarray:
@@ -77,7 +94,9 @@ def main() -> None:
     rank = np.column_stack([rankdata(oof[m, i]) for i in range(oof.shape[1])]).mean(axis=1)
     print(f"  {'rank average':28s} {roc_auc_score(y[m], rank):.5f}")
 
-    Z, Zt = logit(oof), logit(test)
+    pairs = [to_logit(oof[:, i], test[:, i]) for i in range(oof.shape[1])]
+    Z = np.column_stack([p[0] for p in pairs])
+    Zt = np.column_stack([p[1] for p in pairs])
     fl = folds(y)
 
     def nested(fit_score) -> tuple[float, list[float]]:
@@ -101,7 +120,8 @@ def main() -> None:
 
         def hill_fit(i_tr, i_va):
             w = hill_climb(standardise(Z[i_tr], Z[i_tr]), y[i_tr])
-            return standardise(Z[i_va], Z[i_tr]) @ w
+            cal = calibrate(standardise(Z[i_tr], Z[i_tr]) @ w, y[i_tr])
+            return cal.decision_function((standardise(Z[i_va], Z[i_tr]) @ w)[:, None])
 
         results["hill climbing"] = nested(hill_fit)
     for k, (cv_k, fa) in results.items():
@@ -115,7 +135,8 @@ def main() -> None:
         w = hill_climb(standardise(Z[m], Z[m]), y[m])
         print("  hill weights", dict(zip(a.runs, np.round(w, 3).tolist(), strict=True)))
         cv, fold_auc = results["hill climbing"]
-        final = standardise(Zt, Z[m]) @ w
+        cal = calibrate(standardise(Z[m], Z[m]) @ w, y[m])
+        final = cal.decision_function((standardise(Zt, Z[m]) @ w)[:, None])
     else:
         cv, fold_auc = results[f"logistic C={a.C:g}"]
         final = lr.decision_function(Zt)
