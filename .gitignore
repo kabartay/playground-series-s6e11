@@ -1,0 +1,11 @@
+# Competition and original data: never committed (see docs/DATA.md)
+data/
+# Model outputs and submissions are reproducible and large
+runs/
+submissions/*.csv
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+.DS_Store
+catboost_info/
