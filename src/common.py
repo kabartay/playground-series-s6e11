@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -10,21 +11,51 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
-RUNS = ROOT / "runs"
+ON_KAGGLE = Path("/kaggle/input").exists()
+DATA = Path(os.environ.get("S6E11_DATA", ROOT / "data"))
+RUNS = Path(os.environ.get("S6E11_RUNS", "/kaggle/working/runs" if ON_KAGGLE else ROOT / "runs"))
+
+
+def _find(name: str, *alts: str) -> Path:
+    """Locate a data file locally (data/) or anywhere under /kaggle/input on Kaggle."""
+    for n in (name, *alts):
+        if (DATA / n).exists():
+            return DATA / n
+    if ON_KAGGLE:
+        for n in (name, *alts):
+            hits = sorted(Path("/kaggle/input").rglob(n))
+            if hits:
+                return hits[0]
+    raise FileNotFoundError(name)
+
+
 TARGET = "is_fraud"
 N_FOLDS = 5
 SEED = 42
 
 CAT_STR = ["merchant_category", "card_type", "auth_method", "channel", "device_type"]
 BOOL = [
-    "is_foreign_transaction", "is_new_merchant", "used_vpn", "ip_country_mismatch",
-    "billing_shipping_mismatch", "is_ai_generated_scam_attempt",
+    "is_foreign_transaction",
+    "is_new_merchant",
+    "used_vpn",
+    "ip_country_mismatch",
+    "billing_shipping_mismatch",
+    "is_ai_generated_scam_attempt",
 ]
 NUM = [
-    "amount_usd", "hours_since_last_txn", "txn_count_last_24h", "distance_from_home_km",
-    "card_age_months", "customer_age", "account_balance_usd", "cvv_retry_count", "velocity_score",
-    "time_of_day_hour", "day_of_week", "merchant_risk_score", "prior_disputes",
+    "amount_usd",
+    "hours_since_last_txn",
+    "txn_count_last_24h",
+    "distance_from_home_km",
+    "card_age_months",
+    "customer_age",
+    "account_balance_usd",
+    "cvv_retry_count",
+    "velocity_score",
+    "time_of_day_hour",
+    "day_of_week",
+    "merchant_risk_score",
+    "prior_disputes",
 ]
 RAW = NUM + CAT_STR + BOOL
 
@@ -34,9 +65,9 @@ def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     Category levels are the union over all three frames so codes agree everywhere.
     """
-    tr = pd.read_csv(DATA / "train.csv")
-    te = pd.read_csv(DATA / "test.csv")
-    og = pd.read_csv(DATA / "original.csv").drop(columns=["transaction_id"])
+    tr = pd.read_csv(_find("train.csv"))
+    te = pd.read_csv(_find("test.csv"))
+    og = pd.read_csv(_find("original.csv", "credit_card_fraud_2026.csv")).drop(columns=["transaction_id"])
     og.insert(0, "id", -1 - np.arange(len(og)))
     for df in (tr, te, og):
         for c in BOOL:

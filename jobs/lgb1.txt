@@ -1,0 +1,6 @@
+# Effect of the original data and of original-derived features, LightGBM
+--model lgb --fe raw   --orig 0 --name lgb_raw_o0
+--model lgb --fe raw   --orig 1 --name lgb_raw_o1
+--model lgb --fe ogte  --orig 1 --name lgb_ogte_o1
+--model lgb --fe combo --orig 1 --name lgb_combo_o1
+--model lgb --fe count --orig 1 --name lgb_count_o1
