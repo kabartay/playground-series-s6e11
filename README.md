@@ -18,7 +18,7 @@ test transactions; the competition closes on 2026-11-30.
 
 > **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95079** (nested CV); best single model 0.95062
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values
-> and digit keys, 3 seeds). Last submission: CV 0.94952, public 0.94982. Round six (CatBoost GLM boost
+> and digit keys, 3 seeds). Last submission: CV 0.95079, public 0.95113. Round six (CatBoost GLM boost
 > seeds and depth, a slower MLP) is running.
 
 ## Contents
@@ -98,6 +98,7 @@ Leaderboard submissions:
 | 2026-11-03 | LightGBM, default settings | 0.9427 (20% holdout) | 0.94578 |
 | 2026-11-03 | FinTFM zero-shot, 2,000-row context | 0.8759 (20% holdout) | 0.88790 |
 | 2026-11-16 | Logistic stack of 7 round-one and round-two models | 0.94952 (5-fold CV) | 0.94982 |
+| 2026-11-16 | Logistic stack of 9 (GLM boost ×3 families, 4-leaf LightGBM, spline GLM, MLP) | 0.95079 (5-fold CV) | 0.95113 |
 
 ## What worked and what did not
 
@@ -133,6 +134,9 @@ predicts a row from labelled example rows in one forward pass, with no training 
 Here it was probed as a stack member. On one fold its best context strategy (`balanced`) scores 0.90679,
 against 0.93666 for LightGBM on the same rows, and it does not improve the trees in a blend
 ([docs/DESIGN.md](docs/DESIGN.md#d8-fintfm-probe-balanced-context-is-best-but-it-does-not-lift-the-trees)).
+The notebook's first full run on a 20,000-row holdout: best setting (balanced 2,000-row context, 4
+contexts ensembled) 0.9089 against 0.9356 for default LightGBM; measured table in
+[notebooks/fintfm-starter/README.md](notebooks/fintfm-starter/README.md).
 
 [`notebooks/fintfm-starter/`](notebooks/fintfm-starter/) holds an educational Kaggle notebook built
 around it: how in-context learning works on a table, how context size and the choice of context rows
