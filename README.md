@@ -16,9 +16,10 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best single model 5-fold CV ROC-AUC **0.95056** (GLM boost: 4-leaf LightGBM
-> started from an in-fold logistic model on target encodings of exact values and digit keys). Best
-> submitted stack: CV 0.94952, public 0.94982. Round four, which improves each member in turn, is running.
+> **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95066** (nested CV); best single model 0.95062
+> (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values
+> and digit keys, 3 seeds). Last submission: CV 0.94952, public 0.94982. Round five, which combines round
+> four's winners, is running.
 
 ## Contents
 
@@ -80,8 +81,11 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | GLM (L2 logistic) | m-estimate encoding + full digit keys | 0.94987 |
 | LightGBM, 4 leaves | m-estimate encoding + full digit keys | 0.95023 |
 | GLM boost: 4-leaf LightGBM from the GLM's logit | m-estimate encoding + full digit keys | 0.95056 |
-| Logistic stack of round-three and round-two models | | **0.95063** |
-| Round four: GLM, GLM boost and XGBoost/CatBoost GLM boost variants | same | running |
+| Logistic stack of round-three and round-two models | | 0.95063 |
+| GLM + cubic splines on the numeric columns | m-estimate encoding + full digit keys | 0.95015 |
+| GLM boost, 3 seeds averaged | m-estimate encoding + full digit keys | 0.95062 |
+| Logistic stack: GLM boost (3 seeds), 4-leaf LightGBM, spline GLM, raw 4-leaf LightGBM, depth-2 XGBoost | | **0.95066** |
+| Round five: GLM boost from the spline GLM, 3 seeds; XGBoost and CatBoost GLM boost | same | running |
 
 Leaderboard submissions:
 
@@ -100,6 +104,12 @@ Leaderboard submissions:
 | GLM boost with m-estimate encoding and full digit keys, against the best round-two tree | +0.0013, 5 of 5 folds | adopted |
 | Stacker choice (rank average, logistic at C 0.01-1, hill climbing) | within 0.00002 of each other | members matter, not the stacker |
 | Stacking round-three models together | +0.00007 over GLM boost alone | members too alike; need diversity |
+| GLM: cubic splines (8 knots) on quantile-transformed numeric columns | +0.00028, 5 of 5 folds | adopted |
+| GLM boost: 3 seeds averaged | +0.00006, 4 of 5 folds | adopted |
+| GLM: C 0.003 or 0.03 instead of 0.01 | -0.00012 to 0.00000 | dropped |
+| GLM: 10-way instead of 5-way inner cross-fit of the encoder | -0.00002 | dropped |
+| GLM boost: learning rate 0.015 with feature fraction 0.3 | -0.00001 | dropped |
+| GLM boost: 8 leaves instead of 4 | -0.00006 | dropped |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
