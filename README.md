@@ -16,8 +16,9 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best 5-fold CV ROC-AUC **0.94854** (single LightGBM with in-fold target
-> encoding). Round three, which reproduces the strongest published single-model recipe, is running.
+> **Status (2026-11-16):** best 5-fold CV ROC-AUC **0.94952** (nested-CV stack; best single model 0.94926,
+> depth-2 XGBoost on in-fold target encodings). Round three, which follows the strongest published
+> single-model recipe, is running.
 
 ## Contents
 
@@ -72,7 +73,10 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | LightGBM, 31 leaves | raw columns | 0.94690 |
 | Logistic stack of 8 round-one models | | 0.94728 |
 | LightGBM, 31 leaves | + decimal digits | 0.94712 |
-| LightGBM, 31 leaves | + in-fold target encoding | **0.94854** |
+| LightGBM, 31 leaves | + in-fold target encoding | 0.94854 |
+| LightGBM, 4 leaves | same features + pairs | 0.94923 |
+| XGBoost, depth 2 | same features + pairs | 0.94926 |
+| Logistic stack of 7 round-one and round-two models | | **0.94952** |
 | GLM, 4-leaf LightGBM, GLM boost | m-estimate encoding + full digit keys | running |
 
 Leaderboard submissions:
@@ -87,6 +91,7 @@ Leaderboard submissions:
 | Idea | Effect on CV | Verdict |
 | :--- | :--- | :--- |
 | In-fold target encoding of exact values, rounded keys and cents | +0.0016, 5 of 5 folds | adopted |
+| Very shallow trees (4 leaves or depth 2) instead of 31 leaves | +0.0006 to +0.0008, 5 of 5 folds | adopted |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |

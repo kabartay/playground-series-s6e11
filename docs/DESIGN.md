@@ -11,9 +11,13 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| lgb_digits_te1 | 2 | LightGBM, 31 leaves | raw + digits + TE (exact values, rounded keys, cents) | 0 | **0.94854** | 0.0035 |
+| stack of round two | 2 | logistic on 7 OOF | | | **0.94952** | |
+| xgb_digits_te2_d2 | 2 | XGBoost, depth 2 | raw + digits + TE + pairs | 0 | 0.94926 | 0.0034 |
+| lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
+| lgb_digits_te1 | 2 | LightGBM, 31 leaves | raw + digits + TE (exact values, rounded keys, cents) | 0 | 0.94854 | 0.0035 |
 | lgb_digits_te2 | 2 | LightGBM, 31 leaves | as above + 45 top-10 pairs | 0 | 0.94845 | 0.0034 |
 | stack of round one | 1 | logistic on 8 OOF | | | 0.94728 | |
+| lgb_raw_l4 | 2 | LightGBM, 4 leaves | raw | 0 | 0.94752 | 0.0030 |
 | lgb_digits | 2 | LightGBM, 31 leaves | raw + first two decimal digits | 0 | 0.94712 | 0.0032 |
 | lgb_raw_o0 | 1 | LightGBM, 31 leaves | raw | 0 | 0.94690 | 0.0031 |
 | xgb_raw_o1 | 1 | XGBoost, depth 6 | raw | 1 | 0.94681 | 0.0033 |
@@ -148,3 +152,21 @@ family (`--keys full`: integer part, tens, 0.1 resolution, first one and two sig
 length), and tests a GLM (L2 logistic, C=0.01, on logit encodings plus one-hot) and GLM boost (4-leaf
 LightGBM with `init_score` from the in-fold GLM). One-fold check on fold 0: GLM 0.94887; GLM boost with
 only 30 trees 0.94901, against 0.94747 for lgb_digits_te1 on the same fold.
+
+## D10. Shallow trees (lgb2b) and the round-two stack
+
+Same in-fold encoding as `lgb_digits_te2` (D9), trees made very shallow (learning rate 0.05,
+`min_child_samples` 200 for LightGBM):
+
+| Run | CV AUC | Folds | Best iterations |
+| --- | --- | --- | --- |
+| lgb_raw_l4 (4 leaves, raw columns) | 0.94752 | 0.94602 0.94941 0.95188 0.94780 0.94275 | 1,695-2,296 |
+| lgb_digits_te2_l4 (4 leaves) | 0.94923 | 0.94809 0.95061 0.95416 0.94962 0.94393 | 1,178-1,734 |
+| xgb_digits_te2_d2 (depth 2) | 0.94926 | 0.94792 0.95038 0.95432 0.95005 0.94397 | 1,231-1,674 |
+
+Four leaves beat 31 by +0.0006 on raw columns and +0.0008 on the encoded set, on all five folds.
+
+A logistic stack of seven round-one and round-two runs (`stack.py lgb_digits_te2_l4 xgb_digits_te2_d2
+lgb_digits_te1 lgb_digits_te2 lgb_raw_l4 lgb_raw_o0 xgb_raw_o1`) scores 0.94952 by nested CV (folds 0.94836
+0.95099 0.95440 0.95006 0.94438), +0.0003 over the best single run; rank average 0.94935. The two shallow
+encoded models carry most of the weight (0.32 and 0.38).
