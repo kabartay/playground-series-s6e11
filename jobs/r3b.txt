@@ -1,0 +1,2 @@
+# GLM boost: the same 4-leaf LightGBM started from the in-fold GLM's logit
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --offset glm --name r3_glmboost --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}

@@ -218,9 +218,12 @@ It sees all 680k pool rows, which no in-context model here can.
 """)
 
 code(r"""
-from lightgbm import LGBMClassifier   # imported after torch on purpose (OpenMP load order)
+from lightgbm import LGBMClassifier
 
-lgbm = lambda: LGBMClassifier(n_estimators=500, learning_rate=0.05, verbose=-1, random_state=0)
+# On macOS, torch and LightGBM bring two OpenMP runtimes and multithreaded LightGBM crashes the process;
+# Linux (and Kaggle) is fine. One thread there costs only a minute here.
+LGBM_JOBS = 1 if sys.platform == "darwin" else -1
+lgbm = lambda: LGBMClassifier(n_estimators=500, learning_rate=0.05, verbose=-1, random_state=0, n_jobs=LGBM_JOBS)
 p_lgbm = evaluate("reference", "LightGBM, 500 rounds, default", lgbm)
 """)
 

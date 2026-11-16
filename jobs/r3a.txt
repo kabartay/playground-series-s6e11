@@ -1,0 +1,3 @@
+# Round three: m-estimate (20) target encoding of exact values + full digit-key family; 4-leaf trees; GLM
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --name r3_glm
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --name r3_lgb_l4 --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}

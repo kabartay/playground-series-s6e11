@@ -131,7 +131,9 @@ def fe_digits(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.D
     ]
 
 
-def te_keys(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame, pairs: bool) -> list[pd.DataFrame]:
+def te_keys(
+    tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame, pairs: bool, digit_keys: bool = False
+) -> list[pd.DataFrame]:
     """Integer category keys for in-fold target encoding (train, test, original), built on the union of rows.
 
     Every column's exact value is a key (when it has at most half as many levels as rows); continuous
@@ -153,6 +155,19 @@ def te_keys(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame, pairs: bool) -
         keys[f"k_{c}_int"] = pd.factorize(np.round(both[c]).astype("int64"))[0]
     for c in DIGIT_COLS:
         keys[f"k_{c}_end"] = np.rint(both[c].to_numpy() * 100).astype("int64") % 100
+    if digit_keys:
+        # The digit-key family of the six float columns: integer part, tens, value at 0.1 resolution,
+        # first one and two significant digits, and the length of the printed value.
+        for c in DIGIT_COLS:
+            x = both[c].to_numpy()
+            text = both[c].astype(str)
+            sig = text.str.replace(".", "", regex=False).str.lstrip("0-")
+            keys[f"k_{c}_floor"] = pd.factorize(np.floor(x).astype("int64"))[0]
+            keys[f"k_{c}_ten"] = pd.factorize(np.floor(x / 10).astype("int64"))[0]
+            keys[f"k_{c}_dec"] = pd.factorize(np.floor(x * 10 + 1e-6).astype("int64"))[0]
+            keys[f"k_{c}_lead1"] = pd.factorize(sig.str[:1])[0]
+            keys[f"k_{c}_lead2"] = pd.factorize(sig.str[:2])[0]
+            keys[f"k_{c}_len"] = text.str.len().to_numpy()
     if pairs:
         from itertools import combinations
 
