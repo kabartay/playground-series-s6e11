@@ -5,21 +5,26 @@
 ![LightGBM 4.7](https://img.shields.io/badge/LightGBM-4.7-blue.svg)
 ![XGBoost 3.4](https://img.shields.io/badge/XGBoost-3.4-blue.svg)
 ![CatBoost 1.2](https://img.shields.io/badge/CatBoost-1.2-blue.svg)
+![Validation: 5-fold CV](https://img.shields.io/badge/validation-5--fold%20CV-informational.svg)
 
 A personal entry to the Kaggle competition
-[Playground Series, Season 6 Episode 11: Predicting Credit Card Fraud](https://www.kaggle.com/competitions/playground-series-s6e11).
+[Playground Series, Season 6 Episode 11: Predicting Credit Card Fraud](https://www.kaggle.com/competitions/playground-series-s6e11),
+developed in the open while the competition runs.
 
 Given 24 attributes of a card transaction (amount, timing, velocity, distance from home, merchant risk,
 authentication method, device, VPN use and other flags), predict the probability that it is fraudulent.
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status:** in progress. Results below are updated as runs finish.
+> **Status (2026-11-16):** best 5-fold CV ROC-AUC **0.94854** (single LightGBM with in-fold target
+> encoding). Round three, which reproduces the strongest published single-model recipe, is running.
 
 ## Contents
 
 - [Approach](#approach)
-- [Status and results](#status-and-results)
+- [Results](#results)
+- [What worked and what did not](#what-worked-and-what-did-not)
+- [FinTFM](#fintfm)
 - [Quick start](#quick-start)
 - [Commands](#commands)
 - [Validation](#validation)
@@ -31,44 +36,75 @@ test transactions; the competition closes on 2026-11-30.
 ## Approach
 
 ```
-train.csv (699,960) ──┐
-                      ├─► 5 fixed stratified folds ──► LightGBM / XGBoost / CatBoost
-original.csv (20,000) ┘      (original rows only on      │  out-of-fold + test predictions
-                              the training side)          ▼  runs/<name>/
-                                                     stack over OOF ──► submission
+train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each fold:
+                                                            in-fold target encoding of exact values
+                                                            and digit keys (fitted on training rows only)
+                                                            │
+                                    ┌───────────────────────┼───────────────────────┐
+                                    ▼                       ▼                       ▼
+                             GLM (logistic)        4-leaf LightGBM         GLM boost (trees that
+                                    │                       │              start from the GLM logit)
+                                    └───────────── out-of-fold + test predictions ──┘
+                                                            │
+                                                            ▼
+                                              stack scored by nested CV ──► submission
 ```
 
-1. **One validation scheme for everything.** Five stratified folds over the competition training rows,
-   fixed seed. Every model writes out-of-fold (OOF) predictions on these folds, so members can be stacked
-   without leakage.
-2. **Use the original dataset.** The competition data is synthetic, generated from the 20,000-row
-   [Credit Card Fraud Detection 2026](https://www.kaggle.com/datasets/uditjain13/credit-card-fraud-detection-2026)
-   dataset (CC0). It is appended to the training side of each fold, and its per-value fraud rates and
-   counts become features. It never enters validation, and the competition target is never used to build
-   features.
-3. **Gradient-boosted trees.** LightGBM, XGBoost and CatBoost with native categorical handling and early
-   stopping on the validation fold.
-4. **Stacking.** A simple model over the members' OOF predictions sets the blend.
-5. **FinTFM.** A tabular foundation model by the same author, tested as an extra stack member for
-   diversity rather than as a standalone model.
+1. **One validation scheme for everything.** Five stratified folds over the training rows, fixed seed.
+   Every model writes out-of-fold (OOF) predictions on these folds, so models can be stacked without
+   leakage, and every decision is made on CV, not on the public leaderboard.
+2. **Encode what the generator left behind.** The data is synthetic. Its generator reuses the original
+   dataset's values, and the exact value of a column, its cents, its integer part and its leading digits
+   all carry fraud signal that a tree cannot express with range splits. Each becomes a category,
+   target-encoded inside the fold.
+3. **Simple models on rich encodings.** Very shallow trees (4 leaves) and a logistic regression do as
+   well as or better than deep trees on these features; trees that start from the logistic model's
+   prediction combine both.
+4. **Stack, honestly.** A logistic stacker over OOF predictions, its own score measured by nested CV.
 
-## Status and results
+## Results
 
-| Step | State |
-| :--- | :--- |
-| Data, original dataset, shared folds, CV harness | done |
-| GBDT sweep: effect of original rows and original-derived features | queued on Kaggle CPU kernels |
-| Stacking | next |
-| FinTFM as a stack member | after stacking |
+5-fold CV ROC-AUC on the training rows. Full table, including every run that did not help, in
+[docs/DESIGN.md](docs/DESIGN.md#results-at-a-glance).
 
-Submissions so far:
-
-| Submission | Validation ROC-AUC | Public LB |
+| Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| LightGBM, default settings (2026-11-03) | 0.9427 (single holdout) | 0.94578 |
-| FinTFM zero-shot, 2,000-row context (2026-11-03) | 0.8759 (single holdout) | 0.88790 |
+| LightGBM, 31 leaves | raw columns | 0.94690 |
+| Logistic stack of 8 round-one models | | 0.94728 |
+| LightGBM, 31 leaves | + decimal digits | 0.94712 |
+| LightGBM, 31 leaves | + in-fold target encoding | **0.94854** |
+| GLM, 4-leaf LightGBM, GLM boost | m-estimate encoding + full digit keys | running |
 
-Every run, including those that did not help, is logged in [docs/DESIGN.md](docs/DESIGN.md).
+Leaderboard submissions:
+
+| Date | Submission | Validation | Public LB |
+| :--- | :--- | :--- | :--- |
+| 2026-11-03 | LightGBM, default settings | 0.9427 (20% holdout) | 0.94578 |
+| 2026-11-03 | FinTFM zero-shot, 2,000-row context | 0.8759 (20% holdout) | 0.88790 |
+
+## What worked and what did not
+
+| Idea | Effect on CV | Verdict |
+| :--- | :--- | :--- |
+| In-fold target encoding of exact values, rounded keys and cents | +0.0016, 5 of 5 folds | adopted |
+| First and second decimal digits as plain features | +0.0002 | small |
+| 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
+| Original dataset appended to training folds | -0.0001 | dropped |
+| Fraud rates per value from the original dataset | -0.0001 to -0.0005 | dropped |
+| A model trained on the original only, as a feature | -0.0012 | dropped |
+| FinTFM (balanced context) blended with LightGBM | -0.0005 to +0.0001 | not used in the stack |
+
+## FinTFM
+
+[FinTFM](https://github.com/kabartay/fintfm) is a small tabular foundation model by the same author: it
+predicts a row from labelled example rows in one forward pass, with no training on the competition data.
+Here it was probed as a stack member. On one fold its best context strategy (`balanced`) scores 0.90679,
+against 0.93666 for LightGBM on the same rows, and it does not improve the trees in a blend
+([docs/DESIGN.md](docs/DESIGN.md#d8-fintfm-probe-balanced-context-is-best-but-it-does-not-lift-the-trees)).
+
+[`notebooks/fintfm-starter/`](notebooks/fintfm-starter/) holds an educational Kaggle notebook built
+around it: how in-context learning works on a table, how context size and the choice of context rows
+change the result, partitioned contexts, ensembling, and a measured comparison with LightGBM.
 
 ## Quick start
 
@@ -80,24 +116,32 @@ uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r requirements.txt
 # download the data as described in docs/DATA.md, then:
 cd src
-../.venv/bin/python train_gbdt.py --model lgb --fe ogte --orig 1 --name lgb_ogte_o1
+../.venv/bin/python train_gbdt.py --model glm --te single --keys full --te-smooth 20 --orig 0 --name glm
+../.venv/bin/python stack.py glm lgb_digits_te1 --out ../submissions/stack.csv
 ```
 
 ## Commands
 
 | Command | What it does |
 | :--- | :--- |
-| `src/train_gbdt.py --model {lgb,xgb,cat} --fe {raw,ogte,combo,count} --orig W --name N` | 5-fold CV; original rows weighted `W` (0 drops them); writes `runs/N/` |
-| `src/train_gbdt.py ... --folds 1 --params '{"n_estimators": 30}'` | quick one-fold check; nothing saved |
-| `scripts/kaggle_kernel.py push --kernel K --jobs jobs/K.txt` | run a job list in a private Kaggle CPU kernel |
-| `scripts/kaggle_kernel.py status --kernel K` | kernel state |
-| `scripts/kaggle_kernel.py fetch --kernel K` | download the kernel's `runs/` and print CV scores |
+| `src/train_gbdt.py --model {lgb,xgb,cat,glm} --name N` | 5-fold CV; writes `runs/N/{oof,test}.npy` and `meta.json` |
+| `  --fe {raw,digits,ogte,combo,count,ogmodel}` | feature set (`src/features.py`) |
+| `  --te {none,single,pairs} --keys {basic,full} --te-smooth {auto,20}` | in-fold target encoding: which keys, which smoothing |
+| `  --offset glm` | GLM boost: LightGBM starts from the in-fold GLM's logit |
+| `  --orig W` | weight of the original rows in each training fold (0 drops them) |
+| `  --params '{"num_leaves": 4}' --folds 1` | model overrides; a one-fold check that saves nothing |
+| `src/stack.py RUN [RUN ...] [--out FILE]` | rank average and a logistic stack, scored by nested CV; optional submission |
+| `src/train_fintfm.py --strategy balanced --folds 1 --rows 20000 --name N` | FinTFM zero-shot on the shared folds |
+| `scripts/queue_kernel.sh K [--internet]` | run `jobs/K.txt` in a private Kaggle CPU kernel when a slot frees, then fetch `runs/` |
+| `scripts/kaggle_kernel.py {push,status,fetch} --kernel K` | the same steps one at a time |
 
 Environment variables: `S6E11_THREADS` (default 4), `S6E11_DATA`, `S6E11_RUNS`.
 
 ## Validation
 
-- Five-fold `StratifiedKFold(shuffle=True, random_state=42)` over competition rows only.
+- Five-fold `StratifiedKFold(shuffle=True, random_state=42)` over the competition rows only.
+- Anything fitted on labels (target encoders, the GLM behind GLM boost) is fitted on the fold's training
+  rows only; encodings of those rows are themselves cross-fitted.
 - A change is adopted when OOF ROC-AUC improves and at least four of five folds improve.
 - The public leaderboard holds roughly a thousand fraud rows, so public differences of a few thousandths
   are within noise; it is a sanity check, not a selector.
@@ -106,24 +150,30 @@ Environment variables: `S6E11_THREADS` (default 4), `S6E11_DATA`, `S6E11_RUNS`.
 
 ```
 src/
-  common.py         data loading, fixed folds, run saving
-  features.py       feature sets: raw, original-data rates (ogte), ratios (combo), frequencies (count)
-  train_gbdt.py     5-fold CV for LightGBM / XGBoost / CatBoost
+  common.py           data loading, the fixed folds, run saving
+  features.py         feature sets and the target-encoding keys (exact values, digit family, pairs)
+  train_gbdt.py       5-fold CV for LightGBM / XGBoost / CatBoost / GLM, with in-fold encoding
+  train_fintfm.py     FinTFM zero-shot predictions on the same folds
+  stack.py            rank average and nested-CV logistic stack; writes a submission
 scripts/
-  kaggle_kernel.py  bundles src/ into a private Kaggle kernel; push, status, fetch
-jobs/               job lists for Kaggle kernels
-docs/               competition, data and design notes
-runs/               per-run OOF and test predictions (not committed)
-data/               competition and original data (not committed)
+  kaggle_kernel.py    bundles src/ and a job list into a private Kaggle kernel; push, status, fetch
+  queue_kernel.sh     push when a CPU slot frees, then watch and fetch
+  watch_kernels.sh    fetch each kernel's runs when it completes
+jobs/                 job lists, one per kernel (each line is one train_*.py call)
+notebooks/
+  fintfm-starter/     educational FinTFM notebook (generated by build_notebook.py)
+docs/                 competition, data and design notes
+runs/                 per-run OOF and test predictions (not committed)
+data/                 competition and original data (not committed)
 ```
 
 ## Documentation
 
 | File | Contents |
 | :--- | :--- |
-| [docs/COMPETITION.md](docs/COMPETITION.md) | metric, deadline, leaderboard notes, our submissions |
+| [docs/DESIGN.md](docs/DESIGN.md) | results table, every decision and finding, what the public notebooks measured |
 | [docs/DATA.md](docs/DATA.md) | files, columns, measured facts, download commands |
-| [docs/DESIGN.md](docs/DESIGN.md) | decision log and the results table for every run |
+| [docs/COMPETITION.md](docs/COMPETITION.md) | metric, deadline, how to read the leaderboard, our submissions |
 
 ## Licences and data
 
@@ -136,4 +186,9 @@ data/               competition and original data (not committed)
 ## Acknowledgements
 
 Thanks to Kaggle for the Playground Series and to the author of the original Credit Card Fraud Detection
-2026 dataset.
+2026 dataset. The round-three recipe follows measurements published in public notebooks by
+[Georgy Mamarin](https://www.kaggle.com/code/georgymamarin/s6e11-fraud-glm-offset-trees-review-budgets),
+[Alex Chilton](https://www.kaggle.com/code/alexchilton/credit-card-fraud-lb-0-9542-shallow-tree-stack) and
+[evgendvorkin](https://www.kaggle.com/code/evgendvorkin/s6e11-deep-eda-artifacts-xgb-oof-0-950285); the
+code here is written independently. The FinTFM notebook takes its shape from
+[Psi's TabPFN-3.5 starter](https://www.kaggle.com/code/philippsinger/tabpfn-3-5-starter-playground-series-s6e11).
