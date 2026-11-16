@@ -16,7 +16,7 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95066** (nested CV); best single model 0.95062
+> **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95071** (nested CV); best single model 0.95062
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values
 > and digit keys, 3 seeds). Last submission: CV 0.94952, public 0.94982. Round five, which combines round
 > four's winners, is running.
@@ -84,8 +84,10 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | Logistic stack of round-three and round-two models | | 0.95063 |
 | GLM + cubic splines on the numeric columns | m-estimate encoding + full digit keys | 0.95015 |
 | GLM boost, 3 seeds averaged | m-estimate encoding + full digit keys | 0.95062 |
-| Logistic stack: GLM boost (3 seeds), 4-leaf LightGBM, spline GLM, raw 4-leaf LightGBM, depth-2 XGBoost | | **0.95066** |
-| Round five: GLM boost from the spline GLM, 3 seeds; XGBoost and CatBoost GLM boost | same | running |
+| Logistic stack: GLM boost (3 seeds), 4-leaf LightGBM, spline GLM, raw 4-leaf LightGBM, depth-2 XGBoost | | 0.95066 |
+| XGBoost depth 2 / CatBoost depth 4 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95049 / 0.95057 |
+| The same stack plus XGBoost and CatBoost GLM boost | | **0.95071** |
+| Round five: GLM boost from the spline GLM (3 seeds), finer splines, MLP member | same | running |
 
 Leaderboard submissions:
 
@@ -110,6 +112,7 @@ Leaderboard submissions:
 | GLM: 10-way instead of 5-way inner cross-fit of the encoder | -0.00002 | dropped |
 | GLM boost: learning rate 0.015 with feature fraction 0.3 | -0.00001 | dropped |
 | GLM boost: 8 leaves instead of 4 | -0.00006 | dropped |
+| XGBoost and CatBoost GLM boost as extra stack members | stack +0.00005 | adopted for diversity |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |

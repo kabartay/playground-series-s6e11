@@ -11,10 +11,13 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | **0.95066** | |
+| stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | **0.95071** | |
+| stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | 0.95066 | |
 | r4_gb_s3 | 4 | GLM boost, 3 seeds averaged | as r3_glmboost | 0 | 0.95062 | 0.0034 |
 | stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | 0.95063 | |
 | r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95056 | 0.0034 |
+| r4_gbc_d4 | 4 | CatBoost depth 4 started from the GLM's logit | as r3_glmboost | 0 | 0.95057 | 0.0034 |
+| r4_gbx_d2 | 4 | XGBoost depth 2 started from the GLM's logit | as r3_glmboost | 0 | 0.95049 | 0.0034 |
 | r4_gb_lr015 | 4 | GLM boost, lr 0.015, feature fraction 0.3 | as r3_glmboost | 0 | 0.95055 | 0.0034 |
 | r4_gb_l8 | 4 | GLM boost, 8 leaves | as r3_glmboost | 0 | 0.95050 | 0.0034 |
 | r3_lgb_l4 | 3 | LightGBM, 4 leaves | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95023 | 0.0035 |
@@ -254,5 +257,12 @@ The splines give the GLM a smooth shape on each numeric column that the exact-va
 Stack `r4_gb_s3 r3_lgb_l4 r4_glm_spl8 lgb_raw_l4 xgb_digits_te2_d2`, logistic C=0.01: nested CV
 **0.95066** (folds 0.94997 0.95149 0.95566 0.95157 0.94521); rank average 0.95057.
 
-Round five (`jobs/r5a.txt`) puts both winners together: GLM boost started from the spline GLM, 3 seeds.
-`jobs/r4c.txt` (XGBoost and CatBoost GLM boost) is still waiting for a CPU slot.
+GLM boost with other tree families (`jobs/r4c.txt`): XGBoost depth 2 0.95049 (folds 0.94976 0.95105
+0.95551 0.95150 0.94489), CatBoost depth 4 0.95057 (folds 0.94972 0.95107 0.95562 0.95142 0.94520). Neither
+beats LightGBM alone, but they rank rows differently: added to the stack above, nested CV rises to
+**0.95071** (logistic C=0.1; rank average 0.95072; hill climbing 0.95065), and CatBoost takes the largest
+weight (0.26, against 0.21 for LightGBM GLM boost and 0.16 for XGBoost GLM boost).
+
+Round five: `jobs/r5a.txt` puts both winners together (GLM boost from the spline GLM, 3 seeds);
+`jobs/r5b.txt` tries GLM splines with 16 knots, 4-leaf trees with 3 seeds, and a small MLP on the spline
+GLM design as a different kind of member.
