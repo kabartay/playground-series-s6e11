@@ -11,7 +11,7 @@ Personal Kaggle entry (not Finkele work). Repository, docs and chat are in Engli
 
 - Deadline 2026-11-30 23:59 UTC. Metric ROC-AUC. Ask the owner before each Kaggle submission unless told to submit freely.
 - Competition data is never committed or uploaded anywhere public. The original dataset is CC0 but stays in `data/` too.
-- The repo is private until the competition ends; the owner makes it public then. Write every doc as if it were public.
+- The repo is public (since 2026-11-16, owner's choice). Everything committed is visible: no data, credentials or other people's code.
 
 ## Code
 
