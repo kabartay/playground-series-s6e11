@@ -404,8 +404,8 @@ What this notebook shows, in general terms (the numbers are in the table above):
 1. **Context is the main dial for an in-context model**, in size and in which rows are chosen. On a 1.7%
    fraud rate a random context holds very few fraud examples, so how the context is built matters as much
    as how big it is.
-2. **A tuned gradient-boosted tree remains the stronger single model here**, as FinTFM's own README says
-   for real credit panels. It sees every training row; FinTFM sees a few thousand at a time.
+2. **Even an untuned gradient-boosted tree remains the stronger single model here**, as FinTFM's own
+   README says for real credit panels. It sees every training row; FinTFM sees a few thousand at a time.
 3. **The useful question is complementarity**: section 9 measures whether FinTFM's different view of the
    data adds anything to a tree model.
 
