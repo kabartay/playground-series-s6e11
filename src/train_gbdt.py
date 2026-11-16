@@ -1,4 +1,4 @@
-"""5-fold CV for LightGBM / XGBoost / CatBoost / GLM. Saves OOF and test predictions to runs/<name>/.
+"""5-fold CV for LightGBM / XGBoost / CatBoost / GLM / MLP. Saves OOF and test predictions to runs/<name>/.
 
 Usage: .venv/bin/python src/train_gbdt.py --model lgb --fe ogte --orig 1 --name lgb_ogte
 
@@ -35,35 +35,69 @@ def glm_design(X: pd.DataFrame) -> np.ndarray:
     return np.hstack(parts)
 
 
-def fit_glm(params: dict, Xtr, ytr, Xs: list) -> tuple[list[np.ndarray], int]:
-    """L2 logistic regression on glm_design; returns logits for each frame in Xs and the iteration count.
+def make_design(params: dict, Xtr):
+    """Return a function mapping a frame to the GLM design: glm_design plus optional numeric splines.
 
-    params: `C` (default 0.01) and `splines` (knots per numeric column; 0, the default, adds none). Splines
-    are fitted on quantile-transformed numeric columns of the training frame only.
+    params: `splines` (knots per numeric column; 0, the default, adds none). Splines are fitted on
+    quantile-transformed numeric columns of the training frame Xtr only.
     """
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.preprocessing import QuantileTransformer, SplineTransformer, StandardScaler
+    from sklearn.preprocessing import QuantileTransformer, SplineTransformer
 
     knots = int(params.get("splines", 0))
     nums = [c for c in NUM if c in Xtr.columns]
-    spl = None
-    if knots > 0 and nums:
-        qt = QuantileTransformer(n_quantiles=1000, subsample=200_000, random_state=0)
-        st = SplineTransformer(n_knots=knots, degree=3)
-        st.fit(qt.fit_transform(Xtr[nums].to_numpy(dtype="float64")))
-        spl = (qt, st)
+    if knots <= 0 or not nums:
+        return glm_design
+    qt = QuantileTransformer(n_quantiles=1000, subsample=200_000, random_state=0)
+    st = SplineTransformer(n_knots=knots, degree=3)
+    st.fit(qt.fit_transform(Xtr[nums].to_numpy(dtype="float64")))
 
     def design(X) -> np.ndarray:
-        D = glm_design(X)
-        if spl is None:
-            return D
-        return np.hstack([D, spl[1].transform(spl[0].transform(X[nums].to_numpy(dtype="float64")))])
+        return np.hstack([glm_design(X), st.transform(qt.transform(X[nums].to_numpy(dtype="float64")))])
 
+    return design
+
+
+def fit_glm(params: dict, Xtr, ytr, Xs: list) -> tuple[list[np.ndarray], int]:
+    """L2 logistic regression on the GLM design; returns logits for each frame in Xs and the iteration count.
+
+    params: `C` (default 0.01) and `splines` (see make_design).
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+
+    design = make_design(params, Xtr)
     Dtr = design(Xtr)
     sc = StandardScaler().fit(Dtr)
     m = LogisticRegression(C=params.get("C", 0.01), max_iter=3000)
     m.fit(sc.transform(Dtr), ytr)
     return [m.decision_function(sc.transform(design(X))) for X in Xs], int(m.n_iter_[0])
+
+
+def fit_mlp(params: dict, Xtr, ytr, Xs: list, seed: int = 0) -> tuple[list[np.ndarray], int]:
+    """Small ReLU network on the standardised GLM design; returns probabilities for each frame in Xs.
+
+    params: `splines` (see make_design), `hidden` (layer sizes, default [64, 32]), `alpha` (L2, default
+    1e-3), `lr` (default 1e-3). Early stopping on an internal 10% split of the training rows.
+    """
+    from sklearn.neural_network import MLPClassifier
+    from sklearn.preprocessing import StandardScaler
+
+    design = make_design(params, Xtr)
+    Dtr = design(Xtr)
+    sc = StandardScaler().fit(Dtr)
+    m = MLPClassifier(
+        hidden_layer_sizes=tuple(params.get("hidden", [64, 32])),
+        alpha=params.get("alpha", 1e-3),
+        learning_rate_init=params.get("lr", 1e-3),
+        batch_size=2048,
+        max_iter=params.get("max_iter", 40),
+        early_stopping=True,
+        validation_fraction=0.1,
+        n_iter_no_change=5,
+        random_state=seed,
+    )
+    m.fit(sc.transform(Dtr), ytr)
+    return [m.predict_proba(sc.transform(design(X)))[:, 1] for X in Xs], int(m.n_iter_)
 
 
 def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=None, seed: int = 0):
@@ -75,6 +109,9 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
     if model == "glm":
         (lv, lt), it = fit_glm(params, Xtr, ytr, [Xva, Xte])
         return lv, lt, it
+    if model == "mlp":
+        (pv, pt), it = fit_mlp(params, Xtr, ytr, [Xva, Xte], seed=seed)
+        return pv, pt, it
     if model == "lgb":
         import lightgbm as lgb
 
@@ -187,7 +224,7 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True, choices=["lgb", "xgb", "cat", "glm"])
+    ap.add_argument("--model", required=True, choices=["lgb", "xgb", "cat", "glm", "mlp"])
     ap.add_argument("--fe", default="raw", choices=list(FEATURE_SETS))
     ap.add_argument("--orig", type=float, default=1.0, help="weight of original rows; 0 drops them")
     ap.add_argument("--name", required=True)

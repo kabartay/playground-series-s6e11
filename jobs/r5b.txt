@@ -1,0 +1,5 @@
+# Round five, members: finer GLM splines; plain 4-leaf trees with 3 seeds; an MLP on the spline GLM design (diversity)
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --name r5_glm_spl16 --params {"splines":16}
+--model mlp --fe raw --te single --keys full --te-smooth 20 --orig 0 --seeds 3 --name r5_mlp --params {"splines":8}
+--model mlp --fe raw --te single --keys full --te-smooth 20 --orig 0 --seeds 3 --name r5_mlp_a1e2 --params {"splines":8,"alpha":0.01,"hidden":[32]}
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --seeds 3 --name r5_lgb_l4_s3 --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
