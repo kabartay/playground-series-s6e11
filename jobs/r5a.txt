@@ -1,0 +1,2 @@
+# Round five: combine round four's winners (GLM splines 8, 3 seeds) in GLM boost
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --offset glm --seeds 3 --name r5_gb_spl8_s3 --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000,"glm_splines":8}

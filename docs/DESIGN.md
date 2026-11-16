@@ -11,10 +11,18 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | **0.95063** | |
+| stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | **0.95066** | |
+| r4_gb_s3 | 4 | GLM boost, 3 seeds averaged | as r3_glmboost | 0 | 0.95062 | 0.0034 |
+| stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | 0.95063 | |
 | r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95056 | 0.0034 |
+| r4_gb_lr015 | 4 | GLM boost, lr 0.015, feature fraction 0.3 | as r3_glmboost | 0 | 0.95055 | 0.0034 |
+| r4_gb_l8 | 4 | GLM boost, 8 leaves | as r3_glmboost | 0 | 0.95050 | 0.0034 |
 | r3_lgb_l4 | 3 | LightGBM, 4 leaves | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95023 | 0.0035 |
+| r4_glm_spl8 | 4 | GLM + cubic splines (8 knots) on numeric columns | logit TE + one-hot | 0 | 0.95015 | 0.0033 |
 | r3_glm | 3 | L2 logistic, C=0.01 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
+| r4_glm_c03 | 4 | GLM, C=0.03 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
+| r4_glm_cv10 | 4 | GLM, 10-way inner cross-fit | logit TE + one-hot | 0 | 0.94985 | 0.0034 |
+| r4_glm_c003 | 4 | GLM, C=0.003 | logit TE + one-hot | 0 | 0.94975 | 0.0034 |
 | stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
 | xgb_digits_te2_d2 | 2 | XGBoost, depth 2 | raw + digits + TE + pairs | 0 | 0.94926 | 0.0034 |
 | lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
@@ -227,3 +235,24 @@ Round one's CatBoost runs (`jobs/cat1.txt`, depth 6, about 75 min each): `cat_ra
   8 leaves.
 - `jobs/r4c.txt`, GLM boost with other tree families for diversity: XGBoost depth 2 (`base_margin`) and
   CatBoost depth 4 (`baseline`).
+
+## D12. Round four results
+
+One change per run against round three (D11):
+
+| Run | Change | CV AUC | Folds up | Verdict |
+| --- | --- | --- | --- | --- |
+| r4_glm_spl8 | GLM + cubic splines (8 knots) on quantile-transformed numeric columns | 0.95015 (+0.00028) | 5 of 5 | adopted |
+| r4_glm_c03 | C 0.03 | 0.94987 (0.00000) | | no change |
+| r4_glm_cv10 | 10-way inner cross-fit of the encoder | 0.94985 (-0.00002) | | dropped |
+| r4_glm_c003 | C 0.003 | 0.94975 (-0.00012) | | dropped |
+| r4_gb_s3 | GLM boost, 3 seeds averaged | 0.95062 (+0.00006) | 4 of 5 | adopted |
+| r4_gb_lr015 | learning rate 0.015, feature fraction 0.3 | 0.95055 (-0.00001) | | dropped |
+| r4_gb_l8 | 8 leaves, min_child_samples 200 | 0.95050 (-0.00006) | | dropped |
+
+The splines give the GLM a smooth shape on each numeric column that the exact-value encodings miss.
+Stack `r4_gb_s3 r3_lgb_l4 r4_glm_spl8 lgb_raw_l4 xgb_digits_te2_d2`, logistic C=0.01: nested CV
+**0.95066** (folds 0.94997 0.95149 0.95566 0.95157 0.94521); rank average 0.95057.
+
+Round five (`jobs/r5a.txt`) puts both winners together: GLM boost started from the spline GLM, 3 seeds.
+`jobs/r4c.txt` (XGBoost and CatBoost GLM boost) is still waiting for a CPU slot.
