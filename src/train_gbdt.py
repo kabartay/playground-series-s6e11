@@ -23,7 +23,7 @@ THREADS = int(os.environ.get("S6E11_THREADS", "4"))  # shared Mac: keep at 4 or 
 
 
 def glm_design(X: pd.DataFrame) -> np.ndarray:
-    """Logit of every target-encoded column plus one-hot categoricals and the 0/1 flags."""
+    """Logit of every target-encoded column, one-hot categoricals, the 0/1 flags and any art_ features."""
     te_cols = [c for c in X.columns if c.startswith("te_")]
     q = np.clip(X[te_cols].to_numpy(dtype="float64"), 1e-5, 1 - 1e-5)
     parts = [
@@ -32,6 +32,9 @@ def glm_design(X: pd.DataFrame) -> np.ndarray:
     ]
     flags = [c for c in BOOL if c in X.columns]
     parts.append(X[flags].to_numpy(dtype="float32"))
+    art = [c for c in X.columns if c.startswith("art_")]
+    if art:
+        parts.append(X[art].to_numpy(dtype="float32"))
     return np.hstack(parts)
 
 
@@ -236,7 +239,7 @@ def main() -> None:
         choices=["none", "single", "pairs"],
         help="in-fold target encoding of exact-value keys (single) and also top-10 pairs (pairs)",
     )
-    ap.add_argument("--te-smooth", default="auto", help='"auto" or an m-estimate weight such as 20')
+    ap.add_argument("--te-smooth", default="auto", help='"auto", m-estimate weight, or list 5,20,100')
     ap.add_argument(
         "--keys", default="basic", choices=["basic", "full"], help="full adds the digit-key family"
     )
@@ -270,22 +273,26 @@ def main() -> None:
         print(f"target-encoding {Ktr.shape[1]} keys in each fold", flush=True)
 
     def add_te(i_tr, i_va):
-        """Fit the encoder on the fold's competition training rows only (cross-fitted), apply elsewhere."""
+        """Fit the encoder on the fold's competition training rows only (cross-fitted), apply elsewhere.
+
+        `--te-smooth` may list several m-estimate weights (e.g. 5,20,100): one encoding per weight, the
+        first named te_<key>, the others te_<key>_m<weight>.
+        """
         if a.te == "none":
             return Xtr_all.iloc[i_tr], Xtr_all.iloc[i_va], Xte, Xog
-        smooth = a.te_smooth if a.te_smooth == "auto" else float(a.te_smooth)
-        enc = TargetEncoder(target_type="binary", smooth=smooth, cv=a.te_cv, random_state=0)
-        cols = [f"te_{c}" for c in Ktr.columns]
-        A = enc.fit_transform(Ktr.iloc[i_tr], y[i_tr]).astype("float32")
+        frames = [[], [], [], []]
+        for j, sm in enumerate(a.te_smooth.split(",")):
+            smooth = sm if sm == "auto" else float(sm)
+            enc = TargetEncoder(target_type="binary", smooth=smooth, cv=a.te_cv, random_state=0)
+            suffix = "" if j == 0 else f"_m{sm}"
+            cols = [f"te_{c}{suffix}" for c in Ktr.columns]
+            A = enc.fit_transform(Ktr.iloc[i_tr], y[i_tr]).astype("float32")
+            for k, K in enumerate((None, Ktr.iloc[i_va], Kte, Kog)):
+                E = A if K is None else enc.transform(K).astype("float32")
+                frames[k].append(pd.DataFrame(E, columns=cols))
         parts = []
-        for X, K, enc_rows in (
-            (Xtr_all.iloc[i_tr], None, A),
-            (Xtr_all.iloc[i_va], Ktr.iloc[i_va], None),
-            (Xte, Kte, None),
-            (Xog, Kog, None),
-        ):
-            E = enc_rows if enc_rows is not None else enc.transform(K).astype("float32")
-            parts.append(pd.concat([X.reset_index(drop=True), pd.DataFrame(E, columns=cols)], axis=1))
+        for X, F in zip((Xtr_all.iloc[i_tr], Xtr_all.iloc[i_va], Xte, Xog), frames, strict=True):
+            parts.append(pd.concat([X.reset_index(drop=True), *F], axis=1))
         return tuple(parts)
 
     oof = np.full(len(tr), np.nan)

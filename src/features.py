@@ -6,6 +6,9 @@ from the original dataset, which never appears in validation.
 
 from __future__ import annotations
 
+import itertools
+
+import numpy as np
 import pandas as pd
 
 from common import BOOL, CAT_STR, NUM, RAW, TARGET
@@ -182,8 +185,45 @@ def te_keys(
     ]
 
 
+ART_PAIR_COLS = [
+    "amount_usd",
+    "hours_since_last_txn",
+    "distance_from_home_km",
+    "account_balance_usd",
+    "velocity_score",
+    "merchant_risk_score",
+]
+
+
+def fe_art(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+    """Raw columns plus pooled generator artefacts (unsupervised, no labels used).
+
+    For each numeric column with more than 100 distinct values: log1p of how often the exact value occurs
+    in train + test (`art_cnt_*`) and whether it occurs in the original data (`art_inog_*`). For each pair
+    of ART_PAIR_COLS: whether the pair of values occurs together in one original row (`art_pair_*`).
+    Measured in `research_artefacts.py` (D14): such pooled effects are invisible to per-value encodings.
+    """
+    out = fe_raw(tr, te, og)
+    allv = pd.concat([tr[NUM], te[NUM]])
+    for c in NUM:
+        if allv[c].nunique() <= 100:
+            continue
+        vc = allv[c].value_counts()
+        ogv = set(og[c].unique())
+        for src, dst in zip((tr, te, og), out, strict=True):
+            dst[f"art_cnt_{c}"] = np.log1p(src[c].map(vc).fillna(0).to_numpy()).astype("float32")
+            dst[f"art_inog_{c}"] = src[c].isin(ogv).to_numpy().astype("int8")
+    for a, b in itertools.combinations(ART_PAIR_COLS, 2):
+        ok = set(zip(og[a], og[b], strict=True))
+        for src, dst in zip((tr, te, og), out, strict=True):
+            hit = np.fromiter((p in ok for p in zip(src[a], src[b], strict=True)), bool, len(src))
+            dst[f"art_pair_{a}__{b}"] = hit.astype("int8")
+    return out
+
+
 FEATURE_SETS = {
     "raw": fe_raw,
+    "art": fe_art,
     "ogte": fe_orig_te,
     "combo": fe_combo,
     "count": fe_count,

@@ -1,0 +1,5 @@
+# Round seven, GLM (against r4_glm_spl8 0.95015): artefact features; encodings at m 5,20,100; pair keys
+--model glm --fe art --te single --keys full --orig 0 --te-smooth 20 --name r7_glm_art --params {"splines":8}
+--model glm --fe raw --te single --keys full --orig 0 --te-smooth 5,20,100 --name r7_glm_m3 --params {"splines":8}
+--model glm --fe art --te single --keys full --orig 0 --te-smooth 5,20,100 --name r7_glm_art_m3 --params {"splines":8}
+--model glm --fe raw --te pairs --keys full --orig 0 --te-smooth 20 --name r7_glm_pairs --params {"splines":8}

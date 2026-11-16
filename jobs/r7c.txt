@@ -1,0 +1,3 @@
+# Round seven: both changes in GLM boost; plain 4-leaf trees with artefact features (against r3_lgb_l4 0.95023)
+--model lgb --fe art --te single --keys full --orig 0 --te-smooth 5,20,100 --offset glm --name r7_gb_art_m3 --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
+--model lgb --fe art --te single --keys full --orig 0 --te-smooth 20 --name r7_lgb_l4_art --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
