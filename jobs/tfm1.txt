@@ -1,0 +1,5 @@
+# FinTFM probe: context strategy, one fold, 20,000 stratified validation rows each (~1,000 s per arm at ~20 rows/s)
+train_fintfm.py --strategy uniform   --folds 1 --rows 20000 --name tfm_uniform_probe
+train_fintfm.py --strategy balanced  --folds 1 --rows 20000 --name tfm_balanced_probe
+train_fintfm.py --strategy retrieval --folds 1 --rows 20000 --name tfm_retrieval_probe
+train_fintfm.py --strategy hybrid    --folds 1 --rows 20000 --name tfm_hybrid_probe

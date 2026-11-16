@@ -8,7 +8,8 @@ Usage (from the repo root):
   .venv/bin/python scripts/kaggle_kernel.py status --kernel lgb1
   .venv/bin/python scripts/kaggle_kernel.py fetch  --kernel lgb1
 
-A jobs file has one train_gbdt.py argument string per line; blank lines and # comments are ignored.
+A jobs file has one argument string per line for train_gbdt.py, or a line starting with another script
+name (e.g. `train_fintfm.py --strategy balanced ...`); blank lines and # comments are ignored.
 """
 
 from __future__ import annotations
@@ -39,7 +40,9 @@ env = dict(os.environ, S6E11_THREADS="4")
 for j, args in enumerate(JOBS):
     t0 = time.time()
     print(f"=== job {{j + 1}}/{{len(JOBS)}}: {{args}}", flush=True)
-    r = subprocess.run([sys.executable, "train_gbdt.py", *args.split()], cwd=d, env=env)
+    argv = args.split()
+    script = argv.pop(0) if argv[0].endswith(".py") else "train_gbdt.py"
+    r = subprocess.run([sys.executable, script, *argv], cwd=d, env=env)
     print(f"=== exit {{r.returncode}} after {{time.time() - t0:.0f}}s", flush=True)
 '''
 
@@ -49,7 +52,7 @@ def slug(kernel: str) -> str:
     return f"s6e11-{kernel}"
 
 
-def build(kernel: str, jobs: list[str], out: Path) -> None:
+def build(kernel: str, jobs: list[str], out: Path, internet: bool = False) -> None:
     """Write run.py and kernel-metadata.json for one kernel into `out`."""
     src = {p.name: p.read_text() for p in sorted((ROOT / "src").glob("*.py"))}
     (out / "run.py").write_text(TEMPLATE.format(src=src, jobs=jobs))
@@ -62,7 +65,7 @@ def build(kernel: str, jobs: list[str], out: Path) -> None:
         "is_private": "true",
         "enable_gpu": "false",
         "enable_tpu": "false",
-        "enable_internet": "false",
+        "enable_internet": "true" if internet else "false",
         "dataset_sources": [ORIGINAL],
         "competition_sources": [COMPETITION],
         "kernel_sources": [],
@@ -82,11 +85,12 @@ def main() -> None:
     ap.add_argument("action", choices=["push", "status", "fetch"])
     ap.add_argument("--kernel", required=True)
     ap.add_argument("--jobs", type=Path)
+    ap.add_argument("--internet", action="store_true", help="needed by train_fintfm.py (pip + checkpoint)")
     a = ap.parse_args()
     ref = f"{USER}/{slug(a.kernel)}"
     if a.action == "push":
         with tempfile.TemporaryDirectory() as t:
-            build(a.kernel, read_jobs(a.jobs), Path(t))
+            build(a.kernel, read_jobs(a.jobs), Path(t), a.internet)
             subprocess.run(["kaggle", "kernels", "push", "-p", t], check=True)
     elif a.action == "status":
         subprocess.run(["kaggle", "kernels", "status", ref], check=True)
