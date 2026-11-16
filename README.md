@@ -16,9 +16,9 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best 5-fold CV ROC-AUC **0.94952** (nested-CV stack; best single model 0.94926,
-> depth-2 XGBoost on in-fold target encodings). Round three, which follows the strongest published
-> single-model recipe, is running.
+> **Status (2026-11-16):** best single model 5-fold CV ROC-AUC **0.95056** (GLM boost: 4-leaf LightGBM
+> started from an in-fold logistic model on target encodings of exact values and digit keys). Best
+> submitted stack: CV 0.94952, public 0.94982. Round four, which improves each member in turn, is running.
 
 ## Contents
 
@@ -76,8 +76,9 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | LightGBM, 31 leaves | + in-fold target encoding | 0.94854 |
 | LightGBM, 4 leaves | same features + pairs | 0.94923 |
 | XGBoost, depth 2 | same features + pairs | 0.94926 |
-| Logistic stack of 7 round-one and round-two models | | **0.94952** |
-| GLM, 4-leaf LightGBM, GLM boost | m-estimate encoding + full digit keys | running |
+| Logistic stack of 7 round-one and round-two models | | 0.94952 |
+| GLM boost: 4-leaf LightGBM from the GLM's logit | m-estimate encoding + full digit keys | **0.95056** |
+| Round four: GLM, GLM boost and XGBoost/CatBoost GLM boost variants | same | running |
 
 Leaderboard submissions:
 
@@ -93,6 +94,8 @@ Leaderboard submissions:
 | :--- | :--- | :--- |
 | In-fold target encoding of exact values, rounded keys and cents | +0.0016, 5 of 5 folds | adopted |
 | Very shallow trees (4 leaves or depth 2) instead of 31 leaves | +0.0006 to +0.0008, 5 of 5 folds | adopted |
+| GLM boost with m-estimate encoding and full digit keys, against the best round-two tree | +0.0013, 5 of 5 folds | adopted |
+| Stacker choice (rank average, logistic at C 0.01-1, hill climbing) | within 0.00002 of each other | members matter, not the stacker |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
@@ -133,10 +136,12 @@ cd src
 | `src/train_gbdt.py --model {lgb,xgb,cat,glm} --name N` | 5-fold CV; writes `runs/N/{oof,test}.npy` and `meta.json` |
 | `  --fe {raw,digits,ogte,combo,count,ogmodel}` | feature set (`src/features.py`) |
 | `  --te {none,single,pairs} --keys {basic,full} --te-smooth {auto,20}` | in-fold target encoding: which keys, which smoothing |
-| `  --offset glm` | GLM boost: LightGBM starts from the in-fold GLM's logit |
+| `  --offset glm` | GLM boost: the trees (LightGBM, XGBoost or CatBoost) start from the in-fold GLM's logit |
+| `  --seeds K --te-cv 10` | average K seeds per fold; inner cross-fitting folds of the encoder |
+| `  --rows 20000 --folds 1` | smoke test on a stratified subsample; saves nothing |
 | `  --orig W` | weight of the original rows in each training fold (0 drops them) |
 | `  --params '{"num_leaves": 4}' --folds 1` | model overrides; a one-fold check that saves nothing |
-| `src/stack.py RUN [RUN ...] [--out FILE]` | rank average and a logistic stack, scored by nested CV; optional submission |
+| `src/stack.py RUN [RUN ...] [--method {logistic,hill}] [--out FILE]` | rank average, logistic stacks and hill climbing, each scored by nested CV; optional submission |
 | `src/train_fintfm.py --strategy balanced --folds 1 --rows 20000 --name N` | FinTFM zero-shot on the shared folds |
 | `scripts/queue_kernel.sh K [--internet]` | run `jobs/K.txt` in a private Kaggle CPU kernel when a slot frees, then fetch `runs/` |
 | `scripts/kaggle_kernel.py {push,status,fetch} --kernel K` | the same steps one at a time |

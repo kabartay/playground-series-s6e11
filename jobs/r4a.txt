@@ -1,0 +1,5 @@
+# Round four, GLM: one change each against r3_glm (C 0.01, no splines, 5-way inner cross-fit)
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --name r4_glm_c003 --params {"C":0.003}
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --name r4_glm_c03 --params {"C":0.03}
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --name r4_glm_spl8 --params {"splines":8}
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --te-cv 10 --name r4_glm_cv10

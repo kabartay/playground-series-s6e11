@@ -1,6 +1,9 @@
-"""5-fold CV for LightGBM / XGBoost / CatBoost. Saves OOF and test predictions to runs/<name>/.
+"""5-fold CV for LightGBM / XGBoost / CatBoost / GLM. Saves OOF and test predictions to runs/<name>/.
 
 Usage: .venv/bin/python src/train_gbdt.py --model lgb --fe ogte --orig 1 --name lgb_ogte
+
+`--seeds K` trains K models per fold with different random seeds and averages them (same folds);
+`--rows N` runs on a stratified subsample of N training rows as a smoke test and saves nothing.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-from common import BOOL, TARGET, folds, load, save_run
+from common import BOOL, NUM, TARGET, folds, load, save_run
 from features import CATS, FEATURE_SETS, te_keys
 
 THREADS = int(os.environ.get("S6E11_THREADS", "4"))  # shared Mac: keep at 4 or below
@@ -33,21 +36,41 @@ def glm_design(X: pd.DataFrame) -> np.ndarray:
 
 
 def fit_glm(params: dict, Xtr, ytr, Xs: list) -> tuple[list[np.ndarray], int]:
-    """L2 logistic regression on glm_design; returns logits for each frame in Xs and the iteration count."""
+    """L2 logistic regression on glm_design; returns logits for each frame in Xs and the iteration count.
+
+    params: `C` (default 0.01) and `splines` (knots per numeric column; 0, the default, adds none). Splines
+    are fitted on quantile-transformed numeric columns of the training frame only.
+    """
     from sklearn.linear_model import LogisticRegression
-    from sklearn.preprocessing import StandardScaler
+    from sklearn.preprocessing import QuantileTransformer, SplineTransformer, StandardScaler
 
-    sc = StandardScaler().fit(glm_design(Xtr))
+    knots = int(params.get("splines", 0))
+    nums = [c for c in NUM if c in Xtr.columns]
+    spl = None
+    if knots > 0 and nums:
+        qt = QuantileTransformer(n_quantiles=1000, subsample=200_000, random_state=0)
+        st = SplineTransformer(n_knots=knots, degree=3)
+        st.fit(qt.fit_transform(Xtr[nums].to_numpy(dtype="float64")))
+        spl = (qt, st)
+
+    def design(X) -> np.ndarray:
+        D = glm_design(X)
+        if spl is None:
+            return D
+        return np.hstack([D, spl[1].transform(spl[0].transform(X[nums].to_numpy(dtype="float64")))])
+
+    Dtr = design(Xtr)
+    sc = StandardScaler().fit(Dtr)
     m = LogisticRegression(C=params.get("C", 0.01), max_iter=3000)
-    m.fit(sc.transform(glm_design(Xtr)), ytr)
-    return [m.decision_function(sc.transform(glm_design(X))) for X in Xs], int(m.n_iter_[0])
+    m.fit(sc.transform(Dtr), ytr)
+    return [m.decision_function(sc.transform(design(X))) for X in Xs], int(m.n_iter_[0])
 
 
-def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=None):
+def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=None, seed: int = 0):
     """Train one fold with early stopping on the validation fold; return (val_pred, test_pred, best_iter).
 
-    `init` is an optional (train, val, test) tuple of logits that LightGBM starts from (GLM boost);
-    predictions are then that logit plus the trees' raw score.
+    `init` is an optional (train, val, test) tuple of logits that the trees start from (GLM boost);
+    predictions are then that logit plus the trees' raw score. `seed` sets the model's random seed.
     """
     if model == "glm":
         (lv, lt), it = fit_glm(params, Xtr, ytr, [Xva, Xte])
@@ -68,6 +91,7 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             n_estimators=5000,
             num_threads=THREADS,
             verbose=-1,
+            random_state=seed,
         )
         p.update(params)
         m = lgb.LGBMClassifier(**p)
@@ -105,11 +129,19 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             eval_metric="auc",
             early_stopping_rounds=200,
             n_jobs=THREADS,
+            random_state=seed,
         )
         p.update(params)
         m = xgb.XGBClassifier(**p)
-        m.fit(Xtr, ytr, sample_weight=wtr, eval_set=[(Xva, yva)], verbose=False)
+        extra = {} if init is None else {"base_margin": init[0], "base_margin_eval_set": [init[1]]}
+        m.fit(Xtr, ytr, sample_weight=wtr, eval_set=[(Xva, yva)], verbose=False, **extra)
         it = m.best_iteration + 1
+        if init is not None:
+            return (
+                m.predict(Xva, output_margin=True, base_margin=init[1], iteration_range=(0, it)),
+                m.predict(Xte, output_margin=True, base_margin=init[2], iteration_range=(0, it)),
+                it,
+            )
         return (
             m.predict_proba(Xva, iteration_range=(0, it))[:, 1],
             m.predict_proba(Xte, iteration_range=(0, it))[:, 1],
@@ -128,18 +160,26 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             od_wait=200,
             thread_count=THREADS,
             verbose=0,
-            random_seed=0,
+            random_seed=seed,
         )
         p.update(params)
         cats = [c for c in CATS if c in Xtr.columns]
 
-        def pool(X, y=None, w=None):
+        def pool(X, y=None, w=None, base=None):
             X = X.copy()
             for c in cats:
                 X[c] = X[c].astype(str)
-            return Pool(X, y, weight=w, cat_features=cats)
+            return Pool(X, y, weight=w, cat_features=cats, baseline=base)
 
         m = CatBoostClassifier(**p)
+        if init is not None:
+            m.fit(pool(Xtr, ytr, wtr, init[0]), eval_set=pool(Xva, yva, base=init[1]), use_best_model=True)
+            raw = "RawFormulaVal"
+            return (
+                m.predict(pool(Xva), prediction_type=raw) + init[1],
+                m.predict(pool(Xte), prediction_type=raw) + init[2],
+                m.get_best_iteration(),
+            )
         m.fit(pool(Xtr, ytr, wtr), eval_set=pool(Xva, yva), use_best_model=True)
         return m.predict_proba(pool(Xva))[:, 1], m.predict_proba(pool(Xte))[:, 1], m.get_best_iteration()
     raise ValueError(model)
@@ -167,14 +207,23 @@ def main() -> None:
         "--offset",
         default="none",
         choices=["none", "glm"],
-        help="glm: LightGBM starts from an in-fold GLM's logit (GLM boost)",
+        help="glm: the trees start from an in-fold GLM's logit (GLM boost; lgb, xgb or cat)",
     )
+    ap.add_argument("--te-cv", type=int, default=5, help="inner cross-fitting folds of the target encoder")
+    ap.add_argument("--seeds", type=int, default=1, help="models per fold with different seeds, averaged")
+    ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves nothing")
     a = ap.parse_args()
     import json
 
     params = json.loads(a.params)
+    glm_params = {"C": params.pop("glm_C", 0.01), "splines": params.pop("glm_splines", 0)}
 
     tr, te, og = load()
+    if a.rows:
+        from sklearn.model_selection import train_test_split
+
+        tr = train_test_split(tr, train_size=a.rows, stratify=tr[TARGET], random_state=0)[0]
+        tr, te = tr.reset_index(drop=True), te.iloc[:1000].reset_index(drop=True)
     Xtr_all, Xte, Xog = FEATURE_SETS[a.fe](tr, te, og)
     y = tr[TARGET].values
     if a.te != "none":
@@ -188,7 +237,7 @@ def main() -> None:
         if a.te == "none":
             return Xtr_all.iloc[i_tr], Xtr_all.iloc[i_va], Xte, Xog
         smooth = a.te_smooth if a.te_smooth == "auto" else float(a.te_smooth)
-        enc = TargetEncoder(target_type="binary", smooth=smooth, random_state=0)
+        enc = TargetEncoder(target_type="binary", smooth=smooth, cv=a.te_cv, random_state=0)
         cols = [f"te_{c}" for c in Ktr.columns]
         A = enc.fit_transform(Ktr.iloc[i_tr], y[i_tr]).astype("float32")
         parts = []
@@ -219,8 +268,12 @@ def main() -> None:
         if a.offset == "glm":
             if a.orig > 0 or a.te == "none":
                 raise SystemExit("--offset glm needs --orig 0 and target encoding")
-            init, _ = fit_glm({}, Xa, ya, [Xa, Xva, Xte_k])
-        pv, pt, it = fit_predict(a.model, params, Xa, ya, wa, Xva, y[i_va], Xte_k, init)
+            init, _ = fit_glm(glm_params, Xa, ya, [Xa, Xva, Xte_k])
+        n_seeds = 1 if a.model == "glm" else a.seeds
+        pv, pt, it = 0.0, 0.0, 0
+        for s in range(n_seeds):
+            v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, y[i_va], Xte_k, init, seed=s)
+            pv, pt, it = pv + v / n_seeds, pt + t / n_seeds, it + int(i) // n_seeds
         oof[i_va] = pv
         test += pt / len(fl)
         scores.append(roc_auc_score(y[i_va], pv))
@@ -232,7 +285,7 @@ def main() -> None:
         f"{a.name}: CV {cv:.5f}  folds {np.round(scores, 5).tolist()}  "
         f"mean {np.mean(scores):.5f} sd {np.std(scores):.5f}"
     )
-    if a.folds == 5:
+    if a.folds == 5 and not a.rows:
         save_run(
             a.name,
             oof,

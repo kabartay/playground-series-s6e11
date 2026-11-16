@@ -1,0 +1,4 @@
+# Round four, LightGBM GLM boost: one change each against r3_glmboost (CV 0.95056)
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --offset glm --seeds 3 --name r4_gb_s3 --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --offset glm --name r4_gb_lr015 --params {"num_leaves":4,"learning_rate":0.015,"feature_fraction":0.3,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":40000}
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --offset glm --name r4_gb_l8 --params {"num_leaves":8,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":200,"lambda_l2":1.0,"n_estimators":20000}

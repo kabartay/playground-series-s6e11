@@ -11,7 +11,8 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round two | 2 | logistic on 7 OOF | | | **0.94952** | |
+| r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | **0.95056** | 0.0034 |
+| stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
 | xgb_digits_te2_d2 | 2 | XGBoost, depth 2 | raw + digits + TE + pairs | 0 | 0.94926 | 0.0034 |
 | lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
 | lgb_digits_te1 | 2 | LightGBM, 31 leaves | raw + digits + TE (exact values, rounded keys, cents) | 0 | 0.94854 | 0.0035 |
@@ -28,8 +29,7 @@ rows added to each training fold (0 = not used).
 | lgb_ogte_o1 | 1 | LightGBM, 31 leaves | raw + original per-value rates | 1 | 0.94633 | 0.0034 |
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
 
-Round three (m-estimate encoding with the full digit-key family, 4-leaf trees, GLM, GLM boost) is running;
-see D9.
+Round three's GLM and plain 4-leaf runs (`r3a`) and round four (D11) are running.
 
 ## D1. Validation
 
@@ -170,3 +170,31 @@ A logistic stack of seven round-one and round-two runs (`stack.py lgb_digits_te2
 lgb_digits_te1 lgb_digits_te2 lgb_raw_l4 lgb_raw_o0 xgb_raw_o1`) scores 0.94952 by nested CV (folds 0.94836
 0.95099 0.95440 0.95006 0.94438), +0.0003 over the best single run; rank average 0.94935. The two shallow
 encoded models carry most of the weight (0.32 and 0.38).
+
+## D11. GLM boost, stacker choice, and round four
+
+`r3_glmboost` (`jobs/r3b.txt`): m-estimate (20) encoding of 76 keys (exact values plus the full digit
+family), an in-fold GLM (C=0.01), then 4-leaf LightGBM from the GLM's logit. CV **0.95056**, folds 0.94996
+0.95109 0.95548 0.95161 0.94490, best iterations 558-1,139, 550 s on a Kaggle CPU kernel. That is +0.0013
+over the best round-two model and higher on all five folds; it sits inside the 0.9507-0.9513 range the
+public notebooks report for the same recipe (D7).
+
+The stacker is not the bottleneck. On the seven round-two members, every stacker scored by nested CV
+lands within 0.00002:
+
+| Stacker | Nested CV |
+| --- | --- |
+| rank average | 0.94935 |
+| logistic C=0.01 | 0.94954 |
+| logistic C=0.1 | 0.94953 |
+| logistic C=1 | 0.94952 |
+| greedy hill climbing on standardised logits | 0.94952 |
+
+Gains therefore have to come from the members. Round four changes one thing per run against round three:
+
+- `jobs/r4a.txt`, GLM: C 0.003 and 0.03; cubic splines (8 knots) on quantile-transformed numeric
+  columns; 10-way instead of 5-way inner cross-fitting of the encoder.
+- `jobs/r4b.txt`, LightGBM GLM boost: 3 seeds averaged; learning rate 0.015 with feature fraction 0.3;
+  8 leaves.
+- `jobs/r4c.txt`, GLM boost with other tree families for diversity: XGBoost depth 2 (`base_margin`) and
+  CatBoost depth 4 (`baseline`).
