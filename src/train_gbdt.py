@@ -14,7 +14,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 from common import TARGET, folds, load, save_run
-from features import CATS, FEATURE_SETS
+from features import CATS, FEATURE_SETS, te_keys
 
 THREADS = int(os.environ.get("S6E11_THREADS", "4"))  # shared Mac: keep at 4 or below
 
@@ -114,6 +114,12 @@ def main() -> None:
     ap.add_argument("--name", required=True)
     ap.add_argument("--params", default="{}", help="JSON overrides of model params")
     ap.add_argument("--folds", type=int, default=5, help="run only the first k folds (quick checks)")
+    ap.add_argument(
+        "--te",
+        default="none",
+        choices=["none", "single", "pairs"],
+        help="in-fold target encoding of exact-value keys (single) and also top-10 pairs (pairs)",
+    )
     a = ap.parse_args()
     import json
 
@@ -122,19 +128,44 @@ def main() -> None:
     tr, te, og = load()
     Xtr_all, Xte, Xog = FEATURE_SETS[a.fe](tr, te, og)
     y = tr[TARGET].values
+    if a.te != "none":
+        from sklearn.preprocessing import TargetEncoder
+
+        Ktr, Kte, Kog = te_keys(tr, te, og, pairs=a.te == "pairs")
+        print(f"target-encoding {Ktr.shape[1]} keys in each fold", flush=True)
+
+    def add_te(i_tr, i_va):
+        """Fit the encoder on the fold's competition training rows only (cross-fitted), apply elsewhere."""
+        if a.te == "none":
+            return Xtr_all.iloc[i_tr], Xtr_all.iloc[i_va], Xte, Xog
+        enc = TargetEncoder(target_type="binary", random_state=0)
+        cols = [f"te_{c}" for c in Ktr.columns]
+        A = enc.fit_transform(Ktr.iloc[i_tr], y[i_tr]).astype("float32")
+        parts = []
+        for X, K, enc_rows in (
+            (Xtr_all.iloc[i_tr], None, A),
+            (Xtr_all.iloc[i_va], Ktr.iloc[i_va], None),
+            (Xte, Kte, None),
+            (Xog, Kog, None),
+        ):
+            E = enc_rows if enc_rows is not None else enc.transform(K).astype("float32")
+            parts.append(pd.concat([X.reset_index(drop=True), pd.DataFrame(E, columns=cols)], axis=1))
+        return tuple(parts)
+
     oof = np.full(len(tr), np.nan)
     test = np.zeros(len(te))
     scores, iters = [], []
     t0 = time.time()
     fl = folds(y)[: a.folds]
     for k, (i_tr, i_va) in enumerate(fl):
-        Xa, ya = Xtr_all.iloc[i_tr], y[i_tr]
+        Xa, Xva, Xte_k, Xog_k = add_te(i_tr, i_va)
+        ya = y[i_tr]
         wa = np.ones(len(i_tr))
         if a.orig > 0:
-            Xa = pd.concat([Xa, Xog], ignore_index=True)
+            Xa = pd.concat([Xa, Xog_k], ignore_index=True)
             ya = np.concatenate([ya, og[TARGET].values])
             wa = np.concatenate([wa, np.full(len(og), a.orig)])
-        pv, pt, it = fit_predict(a.model, params, Xa, ya, wa, Xtr_all.iloc[i_va], y[i_va], Xte)
+        pv, pt, it = fit_predict(a.model, params, Xa, ya, wa, Xva, y[i_va], Xte_k)
         oof[i_va] = pv
         test += pt / len(fl)
         scores.append(roc_auc_score(y[i_va], pv))

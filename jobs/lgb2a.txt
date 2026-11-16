@@ -1,0 +1,4 @@
+# Artefact features: decimal digits, then in-fold target encoding of exact-value keys, then + top-10 pairs
+--model lgb --fe digits --te none   --orig 0 --name lgb_digits
+--model lgb --fe digits --te single --orig 0 --name lgb_digits_te1
+--model lgb --fe digits --te pairs  --orig 0 --name lgb_digits_te2

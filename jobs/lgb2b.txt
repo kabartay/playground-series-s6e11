@@ -1,0 +1,4 @@
+# Shallow trees (4 leaves) on raw and on the full artefact set; XGBoost depth 2 on the full set
+--model lgb --fe raw    --te none  --orig 0 --name lgb_raw_l4        --params {"num_leaves":4,"learning_rate":0.05,"min_child_samples":200,"n_estimators":20000}
+--model lgb --fe digits --te pairs --orig 0 --name lgb_digits_te2_l4 --params {"num_leaves":4,"learning_rate":0.05,"min_child_samples":200,"n_estimators":20000}
+--model xgb --fe digits --te pairs --orig 0 --name xgb_digits_te2_d2 --params {"max_depth":2,"learning_rate":0.05,"n_estimators":20000}

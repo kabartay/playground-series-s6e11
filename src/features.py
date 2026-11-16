@@ -89,11 +89,90 @@ def fe_ogmodel(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.
     return out
 
 
+CONT = ["amount_usd", "hours_since_last_txn", "distance_from_home_km", "account_balance_usd"]
+DIGIT_COLS = [
+    "merchant_risk_score",
+    "velocity_score",
+    "hours_since_last_txn",
+    "amount_usd",
+    "distance_from_home_km",
+    "account_balance_usd",
+]
+TE_TOP = [
+    "cvv_retry_count",
+    "ip_country_mismatch",
+    "is_foreign_transaction",
+    "is_new_merchant",
+    "billing_shipping_mismatch",
+    "auth_method",
+    "used_vpn",
+    "is_ai_generated_scam_attempt",
+    "merchant_category",
+    "txn_count_last_24h",
+]
+
+
+def digits(df: pd.DataFrame) -> pd.DataFrame:
+    """First and second decimal digit of continuous columns: a modulo artefact of the synthesiser."""
+    import numpy as np
+
+    out = {}
+    for c in DIGIT_COLS:
+        cents = np.rint(df[c].to_numpy() * 100).astype("int64")
+        out[f"d1_{c}"] = ((cents // 10) % 10).astype("int8")
+        out[f"d2_{c}"] = (cents % 10).astype("int8")
+    return pd.DataFrame(out, index=df.index)
+
+
+def fe_digits(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+    """Raw columns plus decimal digits."""
+    return [
+        pd.concat([r, digits(src)], axis=1) for r, src in zip(fe_raw(tr, te, og), (tr, te, og), strict=True)
+    ]
+
+
+def te_keys(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame, pairs: bool) -> list[pd.DataFrame]:
+    """Integer category keys for in-fold target encoding (train, test, original), built on the union of rows.
+
+    Every column's exact value is a key (when it has at most half as many levels as rows); continuous
+    columns are also keyed on rounded values; decimal endings are keys; with `pairs`, every pair among
+    TE_TOP is a key. The encoding itself happens inside each fold in train_gbdt.py.
+    """
+    import numpy as np
+
+    both = pd.concat([tr[RAW], te[RAW], og[RAW]], ignore_index=True)
+    keys = {}
+    for c in RAW:
+        codes, uniq = pd.factorize(both[c].astype(str))
+        if len(uniq) <= len(both) // 2:
+            keys[f"k_{c}"] = codes
+    for c in CONT:
+        keys[f"k_{c}_int"] = pd.factorize(np.round(both[c]).astype("int64"))[0]
+        keys[f"k_{c}_r10"] = pd.factorize(np.round(both[c] / 10).astype("int64"))[0]
+    for c in ["merchant_risk_score", "velocity_score"]:
+        keys[f"k_{c}_int"] = pd.factorize(np.round(both[c]).astype("int64"))[0]
+    for c in DIGIT_COLS:
+        keys[f"k_{c}_end"] = np.rint(both[c].to_numpy() * 100).astype("int64") % 100
+    if pairs:
+        from itertools import combinations
+
+        for a, b in combinations(TE_TOP, 2):
+            keys[f"k_{a}__{b}"] = pd.factorize(both[a].astype(str) + "_" + both[b].astype(str))[0]
+    k = pd.DataFrame(keys).astype("int32")
+    n1, n2 = len(tr), len(tr) + len(te)
+    return [
+        k.iloc[:n1].reset_index(drop=True),
+        k.iloc[n1:n2].reset_index(drop=True),
+        k.iloc[n2:].reset_index(drop=True),
+    ]
+
+
 FEATURE_SETS = {
     "raw": fe_raw,
     "ogte": fe_orig_te,
     "combo": fe_combo,
     "count": fe_count,
     "ogmodel": fe_ogmodel,
+    "digits": fe_digits,
 }
 CATS = CAT_STR
