@@ -138,7 +138,8 @@ The notebook's first full run on a 20,000-row holdout: best setting (balanced 2,
 contexts ensembled) 0.9089 against 0.9356 for default LightGBM; measured table in
 [notebooks/fintfm-starter/README.md](notebooks/fintfm-starter/README.md).
 
-[`notebooks/fintfm-starter/`](notebooks/fintfm-starter/) holds an educational Kaggle notebook built
+[`notebooks/fintfm-starter/`](notebooks/fintfm-starter/) holds an educational
+[Kaggle notebook](https://www.kaggle.com/code/muhakabartay/fintfm-starter-playground-series-s6e11) (public) built
 around it: how in-context learning works on a table, how context size and the choice of context rows
 change the result, partitioned contexts, ensembling, and a measured comparison with LightGBM.
 

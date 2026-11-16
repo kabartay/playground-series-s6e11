@@ -6,11 +6,12 @@ check, and a submission from the best setting.
 
 - `build_notebook.py` generates `fintfm-starter-s6e11.ipynb`; edit the script, not the notebook.
 - Smoke test: extract the code cells and run with `FINTFM_SMOKE=1 MPLBACKEND=Agg` (tiny holdout and test).
-- Push (private): `kaggle kernels push -p notebooks/fintfm-starter`. Making it public is the owner's decision.
+- Public on Kaggle since 2026-11-17 (owner's choice): https://www.kaggle.com/code/muhakabartay/fintfm-starter-playground-series-s6e11.
+  `kaggle kernels push -p notebooks/fintfm-starter` publishes a new version, which reruns the notebook (about 5.4 h on CPU).
 - CPU session by default (about 70 rows/s at a 2,000-row context on Kaggle CPU, measured 2026-11-16, D8); the
   notebook reserves 5 h of its 11 h budget for the test predictions and skips experiments that would not fit.
 
-## First full run (Kaggle CPU, private, 2026-11-16)
+## First full run (Kaggle CPU, version 1, 2026-11-16)
 
 FinTFM 0.11.0, 4 CPU threads, 20,000-row stratified holdout (334 fraud), context drawn from the other
 679,960 rows. Total run time 5.4 h, of which 4.3 h for the 299,984 test rows.
@@ -35,3 +36,6 @@ FinTFM 0.11.0, 4 CPU threads, 20,000-row stratified holdout (334 fraud), context
 - Blend with LightGBM on the holdout: best share 0.05 FinTFM, 0.9358 against 0.9356 (rank correlation
   0.866). Within noise on 334 fraud rows.
 - The notebook's submission (balanced, 2,000 rows, n_ensemble=4) has not been submitted to the competition.
+
+Version 1 on Kaggle still calls the LightGBM reference "tuned"; the repository's notebook says "untuned"
+(1a89412). The correction goes out with the next pushed version.
