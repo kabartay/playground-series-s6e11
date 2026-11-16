@@ -73,3 +73,32 @@ continuous columns carry signal that no range split can express; every column's 
 category when target-encoded inside the fold; pairs among the strongest columns help; trees with 4 leaves
 do as well as or better than deep ones. Round two (`jobs/lgb2a.txt`, `jobs/lgb2b.txt`) tests each of
 these in turn. Original rows are dropped from round two.
+
+## D7. What the public notebooks measured (2026-11-16)
+
+Seven public notebooks were read as text (nothing run). Numbers below are as printed in them, 5-fold
+OOF ROC-AUC unless stated; "public" is the public leaderboard.
+
+- **Most of the 0.9542 cluster is public-file blending.** "Steer, Then Mix", "GPT-2 and GLM Fusion" and
+  the "LM ladder" train nothing: they mix other people's submission CSVs in logit-rank space and steer by
+  the public board. The ladder notebook's own CV-backed file is OOF 0.95266 (public 0.95379); its
+  public-tuned file is about 0.0028 worse in OOF. "GLM" and "LM" are linear models, not language models.
+- **Honest single-model ceiling about 0.9503-0.9513:**
+  - In-fold target encoding of every column's exact value plus digit keys of the six float columns
+    (cents, integer part, tens, first decimal, leading digits, digit length), m-estimate smoothing 20,
+    5-way inner cross-fit. Raw 0.9463874 to 0.9492956 with all groups (Mamarin); per group +0.00089
+    (values), +0.00088 (integer keys), +0.00052 (cents), each up on 5/5 folds.
+  - 4-leaf LightGBM (lr 0.03, colsample 0.5, min_child_samples 100, reg_lambda 1, ~1,600 trees):
+    0.9502590 (Mamarin H10); 0.95036-0.95052 on the same recipe (alexchilton); 2 or 3 leaves no better.
+  - Logistic regression (L2, C=0.01) on one-hot plus logit of the encodings: 0.9499797; fixed 80/20
+    with the 4-leaf trees: 0.9504790.
+  - "GLM boost": 4-leaf trees with `init_score` set to the GLM's logit: 0.9506947-0.9513073
+    (Mamarin, adapted), 0.95159 ten-fold (sameershaikh27, quoted).
+- **Measured as not helping:** the 45 top-10 pair encodings (0.94936 without, 0.94951 with); the
+  original dataset as a teacher probability (-0.0036715); frequency encoding (+0.0001); XGBoost in the
+  blend (-0.00001); a GPT-2-small member (-0.0029 on the blend); RealMLP and CatBoost got blend weight 0.
+  Removing `is_ai_generated_scam_attempt` costs 0.0013.
+
+Consequence for us: round two (`lgb2a`, `lgb2b`) uses sklearn's `smooth="auto"` and only end digits,
+so expect it to land short of 0.950. Round three switches to the m-estimate encoder and the full digit
+key set, then adds the GLM and GLM-boost members.
