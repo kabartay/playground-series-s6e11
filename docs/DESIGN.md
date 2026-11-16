@@ -27,6 +27,20 @@ predictions. FinTFM, the owner's tabular foundation model, is tested as an extra
 zero-shot submission on 2026-11-03 scored 0.88790 public against 0.94578 for a default LightGBM, so it
 is expected to help only as a diverse input, not alone.
 
+## D4. Compute (2026-11-16)
+
+The Mac is shared and was at load average 280-410 on 2026-11-16, so a local 5-fold LightGBM run got
+about a third of a core. CV runs go to private Kaggle CPU kernels (`scripts/kaggle_kernel.py`, 4 threads),
+which share the account's five batch CPU slots with fintfm kernels; pushes queue until a slot frees.
+
+## D5. FinTFM cost and probe (2026-11-16)
+
+The 2026-11-03 FinTFM kernel took 6,944 s for 140k holdout rows and 15,106 s for 300k test rows on Kaggle
+CPU, about 20 rows/s, with uniform 2,000-row contexts that hold roughly 33 fraud rows. Full OOF plus test
+would cost about 14 kernel-hours. So the first step is a probe (`jobs/tfm1.txt`): one fold, 20,000
+stratified validation rows, four context strategies (uniform, balanced, retrieval, hybrid). A full run
+follows only if the best strategy lifts the GBDT stack on those same rows.
+
 ## Results
 
 | Run | Model | Features | Original | CV AUC | Fold SD | Notes |
