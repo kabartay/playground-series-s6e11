@@ -52,3 +52,24 @@ follows only if the best strategy lifts the GBDT stack on those same rows.
 
 | Run | Model | Features | Original | CV AUC | Fold SD | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
+| lgb_combo_o1 | lgb | combo | 1 | 0.94659 | 0.00343 | Kaggle CPU, 460 s |
+| lgb_count_o1 | lgb | count | 1 | 0.94647 | 0.00356 | Kaggle CPU, 571 s |
+| lgb_ogmodel_o1 | lgb | ogmodel | 1 | 0.94564 | 0.00366 | Kaggle CPU, 603 s |
+| lgb_ogte_o1 | lgb | ogte | 1 | 0.94633 | 0.00342 | Kaggle CPU, 510 s |
+| lgb_raw_o0 | lgb | raw | 0 | 0.94690 | 0.00310 | Kaggle CPU, 353 s |
+| lgb_raw_o1 | lgb | raw | 1 | 0.94680 | 0.00316 | Kaggle CPU, 332 s |
+| xgb_ogte_o1 | xgb | ogte | 1 | 0.94676 | 0.00360 | Kaggle CPU, 1074 s |
+| xgb_raw_o1 | xgb | raw | 1 | 0.94681 | 0.00331 | Kaggle CPU, 355 s |
+| stack of the 8 above | logistic | | | 0.94728 | | nested CV; rank average 0.94738 |
+
+## D6. Round one: the original data does not help; the gap is elsewhere (2026-11-16)
+
+All eight runs above land at CV 0.9456-0.9469. Adding the original rows changes LightGBM by -0.0001
+(0.94690 without, 0.94680 with); original-derived features cost 0.0002-0.0013. A logistic stack adds
++0.0004. The public cluster at 0.9543 implies a CV near 0.951, so the gap is about 0.004.
+
+Public notebooks (read as text, nothing run) point at generator artefacts: decimal endings of the
+continuous columns carry signal that no range split can express; every column's exact value works as a
+category when target-encoded inside the fold; pairs among the strongest columns help; trees with 4 leaves
+do as well as or better than deep ones. Round two (`jobs/lgb2a.txt`, `jobs/lgb2b.txt`) tests each of
+these in turn. Original rows are dropped from round two.
