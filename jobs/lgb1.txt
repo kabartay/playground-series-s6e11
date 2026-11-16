@@ -4,3 +4,4 @@
 --model lgb --fe ogte  --orig 1 --name lgb_ogte_o1
 --model lgb --fe combo --orig 1 --name lgb_combo_o1
 --model lgb --fe count --orig 1 --name lgb_count_o1
+--model lgb --fe ogmodel --orig 1 --name lgb_ogmodel_o1

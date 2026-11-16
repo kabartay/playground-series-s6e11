@@ -56,5 +56,44 @@ def fe_count(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Da
     return out
 
 
-FEATURE_SETS = {"raw": fe_raw, "ogte": fe_orig_te, "combo": fe_combo, "count": fe_count}
+def fe_ogmodel(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+    """fe_count plus the prediction of a LightGBM trained on the original dataset only.
+
+    Train and test get a model fitted on all original rows; original rows get 5-fold out-of-fold
+    predictions so none sees its own label. The competition target is never read.
+    """
+    import lightgbm as lgb
+    import numpy as np
+    from sklearn.model_selection import StratifiedKFold
+
+    out = fe_count(tr, te, og)
+    params = dict(
+        objective="binary",
+        learning_rate=0.03,
+        n_estimators=400,
+        num_leaves=15,
+        min_child_samples=50,
+        feature_fraction=0.7,
+        verbose=-1,
+        num_threads=4,
+    )
+    y = og[TARGET].to_numpy()
+    oof = np.zeros(len(og))
+    for i_tr, i_va in StratifiedKFold(5, shuffle=True, random_state=0).split(og, y):
+        m = lgb.LGBMClassifier(**params).fit(og[RAW].iloc[i_tr], y[i_tr])
+        oof[i_va] = m.predict_proba(og[RAW].iloc[i_va])[:, 1]
+    m = lgb.LGBMClassifier(**params).fit(og[RAW], y)
+    out[0]["ogmodel"] = m.predict_proba(tr[RAW])[:, 1].astype("float32")
+    out[1]["ogmodel"] = m.predict_proba(te[RAW])[:, 1].astype("float32")
+    out[2]["ogmodel"] = oof.astype("float32")
+    return out
+
+
+FEATURE_SETS = {
+    "raw": fe_raw,
+    "ogte": fe_orig_te,
+    "combo": fe_combo,
+    "count": fe_count,
+    "ogmodel": fe_ogmodel,
+}
 CATS = CAT_STR

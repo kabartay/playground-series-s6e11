@@ -20,6 +20,13 @@ fraud rate against 1.67% in train. Two uses are tested:
 2. derive per-value fraud rates and counts from it as features (`--fe ogte`). These never read the
    competition target, so they are fold-safe.
 
+Measured 2026-11-16: no train or test row equals an original row on all 24 columns, yet 85-100% of
+train values per continuous column occur in the original (amount 97.4%, balance 84.8%, risk and
+velocity 100%), and only 0.02% of train rows share (amount, balance) with an original row. The
+generator reuses the original's values but recombines them, so per-value statistics carry over and
+row lookup does not. A third use follows: `--fe ogmodel` adds the prediction of a LightGBM fitted on the
+original alone (5-fold OOF for the original's own rows).
+
 ## D3. Models (2026-11-16)
 
 GBDTs first (LightGBM, XGBoost, CatBoost through `src/train_gbdt.py`), then a stack over their OOF
