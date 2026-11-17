@@ -1,0 +1,2 @@
+# Round nine (step 4): seed bag of the CatBoost GLM boost member
+--model cat --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --offset glm --seeds 3 --name r9_gbc_all_kc_s3 --params {"depth":4,"learning_rate":0.05,"iterations":20000}
