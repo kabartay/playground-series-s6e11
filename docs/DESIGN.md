@@ -311,8 +311,8 @@ Round six: CatBoost GLM boost with 3 seeds (`jobs/r6a.txt`), depth 6 and a slowe
 
 Round six (`jobs/r6b.txt`): CatBoost GLM boost at depth 6 scores 0.95048 (depth 4: 0.95057), dropped; a
 slower, wider MLP scores 0.94715, the same as round five's. `jobs/r6a.txt`: CatBoost GLM boost with 3 seeds scores
-0.95058 (one seed: 0.95057, 3 of 5 folds up); swapped into the round-five stack it gives 0.95081 against
-0.95079, within noise. Kept as the CatBoost member from now on.
+0.95058 (one seed: 0.95057, 3 of 5 folds up); swapped into the round-five stack it gives 0.95078 against
+0.95079. No gain; the single-seed member stays.
 
 `src/research_artefacts.py` measures pooled effects that per-value encodings cannot see, because each rare
 value is smoothed towards the base rate on its own (base fraud rate 1.670%):
