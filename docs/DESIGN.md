@@ -11,7 +11,22 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | **0.95079** | |
+| stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | **0.95107** | |
+| r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
+| r7_gb_art_m3 | 7 | GLM boost | artefacts + TE at m 5/20/100 | 0 | 0.95076 | 0.0033 |
+| r7_gb_m3 | 7 | GLM boost | TE at m 5/20/100 | 0 | 0.95068 | 0.0034 |
+| r7_gb_art | 7 | GLM boost | artefacts + TE | 0 | 0.95066 | 0.0033 |
+| r7_gb_joint | 7 | GLM boost, joint keys in the GLM | raw + TE | 0 | 0.95063 | 0.0034 |
+| r7_gb_kc | 7 | GLM boost, key counts | raw + TE | 0 | 0.95060 | 0.0033 |
+| r7_glm_art_m3 | 7 | spline GLM | artefacts + TE at m 5/20/100 | 0 | 0.95053 | 0.0032 |
+| r7_glm_joint_kc | 7 | spline GLM | joint keys + key counts | 0 | 0.95043 | 0.0032 |
+| r7_lgb_l4_art | 7 | LightGBM, 4 leaves | artefacts + TE | 0 | 0.95040 | 0.0035 |
+| r7_glm_m3 | 7 | spline GLM | TE at m 5/20/100 | 0 | 0.95037 | 0.0033 |
+| r7_glm_art | 7 | spline GLM | artefacts + TE | 0 | 0.95028 | 0.0032 |
+| r7_glm_joint | 7 | spline GLM | joint keys | 0 | 0.95028 | 0.0033 |
+| r7_glm_kc | 7 | spline GLM | key counts | 0 | 0.95028 | 0.0032 |
+| r7_glm_pairs | 7 | spline GLM | 45 pair keys | 0 | 0.95024 | 0.0033 |
+| stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
 | stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
 | r6_gbc_d4_s3 | 6 | CatBoost depth 4 GLM boost, 3 seeds | as r3_glmboost | 0 | 0.95058 | 0.0034 |
 | r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
@@ -352,3 +367,27 @@ The GPT-2 member, a language model reading each row as text, takes weight 0.55 o
 from every tree and GLM. The public members' authors chose their recipes on these same folds, so part of the
 +0.001 may be selection. Written to `submissions/stack_pub1.csv`; the two final picks will be one stack of
 our own models and one with public members.
+
+## D16. Round seven: artefacts, three smoothing weights, joint keys, key counts
+
+One change against round four (spline GLM `r4_glm_spl8` 0.95015; GLM boost `r3_glmboost` 0.95056):
+
+| Change | GLM | folds up | GLM boost | folds up |
+| --- | --- | --- | --- | --- |
+| artefact features (`--fe art`) | 0.95028 | 3 | 0.95066 | 2 |
+| TE at m 5, 20 and 100 | 0.95037 | 5 | 0.95068 | 4 + 1 tie |
+| both | **0.95053** | 5 | **0.95076** | 5 |
+| joint keys (GLM only) | 0.95028 | 5 | 0.95063 | 3 |
+| key counts | 0.95028 | 3 | 0.95060 | 3 |
+| joint keys + key counts | 0.95043 | 5 | 0.95078 | 3 |
+| 45 pair keys | 0.95024 | 5 | | |
+| 4-leaf trees with artefacts (against r5_lgb_l4_s3 0.95033) | | | 0.95040 (plain trees) | 3 |
+
+Each idea helps the GLM, which cannot build interactions or count effects itself; the trees gain less. The
+pooled artefacts and the multi-weight encodings are complementary (+0.00038 together on the GLM, 5 of 5).
+Adding five round-seven runs to the round-five stack: nested CV **0.95107** (logistic C=1; folds 0.95021
+0.95173 0.95606 0.95193 0.94591), +0.00028, all five folds up.
+
+Round eight (`jobs/r8a.txt` to `r8d.txt`) puts all of it together: artefacts, m 5/20/100, joint keys in
+the GLM, with and without key counts, for the GLM, LightGBM, XGBoost and CatBoost GLM boost, plain 4-leaf
+trees and the MLP.

@@ -16,10 +16,10 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best stack 5-fold CV ROC-AUC **0.95079** (nested CV); best single model 0.95062
-> (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values
-> and digit keys, 3 seeds). Last submission: CV 0.95079, public 0.95113. Round six (CatBoost GLM boost
-> seeds and depth, a slower MLP) is running.
+> **Status (2026-11-16):** best own-model stack 5-fold CV ROC-AUC **0.95107** (nested CV); best single model 0.95078
+> (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values,
+> digit keys and joint keys, with key counts). Last submission: CV 0.95079, public 0.95113. Round eight, which combines round
+> seven's encodings, is running.
 
 ## Contents
 
@@ -89,7 +89,10 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | The same stack plus XGBoost and CatBoost GLM boost | | **0.95071** |
 | MLP (64-32) on the spline GLM design | logit encodings + splines | 0.94715 |
 | Logistic stack of 9: the above plus MLP and spline-GLM boost | | **0.95079** |
-| Round six: CatBoost GLM boost seeds and depth, slower MLP | same | running |
+| GLM boost with artefacts + TE at m 5/20/100 | + pooled artefacts | 0.95076 |
+| GLM boost with joint keys + key counts | + joint keys, key counts | 0.95078 |
+| Logistic stack of 14 own models | | **0.95107** |
+| Round eight: everything combined, all member families | | running |
 
 Leaderboard submissions:
 
@@ -123,6 +126,9 @@ Leaderboard submissions:
 | MLP on the spline GLM design | 0.94715 alone; stack +0.00003 | stack member |
 | CatBoost GLM boost at depth 6 instead of 4 | -0.00009 | dropped |
 | Public OOF members (38, fold-checked) added to our 9 | stack +0.00096 | second track (D15) |
+| Pooled artefacts (counts, values absent from the original, copied pairs) + TE at m 5/20/100 | GLM +0.00038, GLM boost +0.00020, 5 of 5 | adopted |
+| Joint keys of non-additive column pairs, counts of every key | GLM +0.00028, GLM boost +0.00022 | adopted |
+| 45 pair keys in the GLM | +0.00009 | dropped |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
