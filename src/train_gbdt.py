@@ -17,7 +17,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 from common import BOOL, NUM, TARGET, folds, load, save_run
-from features import CATS, FEATURE_SETS, te_keys
+from features import CATS, DIGIT_COLS, FEATURE_SETS, te_keys
 
 THREADS = int(os.environ.get("S6E11_THREADS", "4"))  # shared Mac: keep at 4 or below
 
@@ -267,6 +267,56 @@ def fit_predict(
     raise ValueError(model)
 
 
+HIER_LEVELS = ("ten", "floor", "dec", "")
+"""Coarse-to-fine keys of one float column for the hierarchical encoding: tens, integer part, 0.1 steps,
+exact value ("" is the exact-value key k_<col>). Each level nests inside the one before it."""
+
+
+def chain_rates(Kfit: np.ndarray, yfit: np.ndarray, Kapp: np.ndarray, m: float) -> np.ndarray:
+    """Fraud rate of each applied row at every level of a key chain, shrunk towards the parent level.
+
+    Kfit, Kapp: integer codes (rows x levels, coarse to fine); level l's rate is
+    (frauds + m * parent rate) / (rows + m) over the fit rows sharing the key, starting from the overall
+    rate. Returns rates (applied rows x levels).
+    """
+    r = np.full(len(Kapp), yfit.mean())
+    out = np.empty((len(Kapp), Kfit.shape[1]))
+    for lvl in range(Kfit.shape[1]):
+        size = int(max(Kfit[:, lvl].max(), Kapp[:, lvl].max())) + 1
+        s = np.bincount(Kfit[:, lvl], weights=yfit, minlength=size)
+        n = np.bincount(Kfit[:, lvl], minlength=size)
+        c = Kapp[:, lvl]
+        r = (s[c] + m * r) / (n[c] + m)
+        out[:, lvl] = r
+    return out
+
+
+def hier_te(Ktr: pd.DataFrame, ytr: np.ndarray, others: list, m: float, cv: int) -> list[pd.DataFrame]:
+    """Hierarchical target encoding of the DIGIT_COLS key chains (HIER_LEVELS), fitted on the training rows.
+
+    Training rows are cross-fitted over `cv` inner folds; the other frames use all training rows. Columns
+    te_h_<col>_<level>. Idea after busyaprime's public "hier" members; written here independently.
+    """
+    from sklearn.model_selection import StratifiedKFold
+
+    blocks: list[list[np.ndarray]] = [[] for _ in range(1 + len(others))]
+    names = []
+    for col in DIGIT_COLS:
+        keys = [f"k_{col}_{lv}" if lv else f"k_{col}" for lv in HIER_LEVELS]
+        keys = [k for k in keys if k in Ktr.columns]
+        if len(keys) < 2:
+            continue
+        names += [f"te_h_{k[2:]}" for k in keys]
+        A = Ktr[keys].to_numpy()
+        inner = np.empty((len(A), len(keys)))
+        for i_fit, i_app in StratifiedKFold(cv, shuffle=True, random_state=0).split(A, ytr):
+            inner[i_app] = chain_rates(A[i_fit], ytr[i_fit], A[i_app], m)
+        blocks[0].append(inner)
+        for j, K in enumerate(others, start=1):
+            blocks[j].append(chain_rates(A, ytr, K[keys].to_numpy(), m))
+    return [pd.DataFrame(np.hstack(b).astype("float32"), columns=names) for b in blocks]
+
+
 def inner_rounds(model: str, params: dict, Xa, ya, wa, init, seed: int, fold: int) -> int:
     """Boosting rounds for one fold, chosen without the validation fold.
 
@@ -323,6 +373,12 @@ def main() -> None:
         "--key-counts", action="store_true", help="log count of every key's value over train + test"
     )
     ap.add_argument("--te-cv", type=int, default=5, help="inner cross-fitting folds of the target encoder")
+    ap.add_argument(
+        "--hier",
+        type=float,
+        default=0,
+        help="m > 0 adds hierarchical encodings of each float column's key chain (needs --keys full)",
+    )
     ap.add_argument(
         "--es",
         default="val",
@@ -386,6 +442,10 @@ def main() -> None:
             for k, K in enumerate((None, Ktr.iloc[i_va], Kte, Kog)):
                 E = A if K is None else enc.transform(K).astype("float32")
                 frames[k].append(pd.DataFrame(E, columns=cols))
+        if a.hier > 0:
+            H = hier_te(Ktr.iloc[i_tr], y[i_tr], [Ktr.iloc[i_va], Kte, Kog], a.hier, a.te_cv)
+            for k, h in enumerate(H):
+                frames[k].append(h)
         parts = []
         for X, F in zip((Xtr_all.iloc[i_tr], Xtr_all.iloc[i_va], Xte, Xog), frames, strict=True):
             parts.append(pd.concat([X.reset_index(drop=True), *F], axis=1))
