@@ -13,10 +13,12 @@ rows added to each training fold (0 = not used).
 | --- | --- | --- | --- | --- | --- | --- |
 | stack: wide LM stack + 2 RealMLP (D21) | 9 | logistic (C=0.1) on 3 OOF | | | **0.95255** | |
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
+| stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
 | stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
 | stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
+| stack of round eleven (own models, honest boosters, D22) | 11 | logistic (C=0.1) on 22 OOF: round ten with the five r8 boosters swapped for r11 | | | 0.95133 | |
 | stack of round ten (own models) | 10 | logistic (C=0.1) on 22 OOF: round eight + r10_glm_tok | | | 0.95132 | |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
 | r10_gb_tok | 10 | GLM boost (LightGBM), not adopted (3 of 5 folds) | as r8_gb_all_kc + GPT-2 token keys and 3-digit chunks | 0 | 0.95110 | |
@@ -28,13 +30,17 @@ rows added to each training fold (0 = not used).
 | r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
 | r8_gbx_all_kc | 8 | GLM boost (XGBoost depth 2) | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
 | r9_gbx_all_kc_s3 | 9 | GLM boost (XGBoost depth 2), 3 seeds | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
+| r11_gb_all_kc | 11 | GLM boost (LightGBM), --es inner, not adopted alone (bias check, D22) | as r8_gb_all_kc | 0 | 0.95092 | |
 | r9_gbc_all_kc_s3 | 9 | GLM boost (CatBoost depth 4), 3 seeds | as r8_gb_all_kc | 0 | 0.95091 | 0.0032 |
 | r8_gbc_all_kc | 8 | GLM boost (CatBoost depth 4) | as r8_gb_all_kc | 0 | 0.95090 | 0.0032 |
 | r8_gb_all | 8 | GLM boost (LightGBM) | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95087 | 0.0033 |
+| r11_gbx_all_kc | 11 | GLM boost (XGBoost depth 2), --es inner, not adopted alone (bias check, D22) | as r8_gbx_all_kc | 0 | 0.95087 | |
 | r10_glm_tok | 10 | spline GLM, adopted (4 of 5 folds) | as r8_glm_all + GPT-2 token keys and 3-digit chunks | 0 | 0.95083 | |
+| r11_gbc_all_kc | 11 | GLM boost (CatBoost depth 4), --es inner, not adopted alone (bias check, D22) | as r8_gbc_all_kc | 0 | 0.95082 | |
 | r11_glm_tok_hier | 11 | spline GLM + hierarchical encoding (m 20), not adopted (1 of 5 folds) | as r10_glm_tok + `--hier 20` | 0 | 0.95080 | |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
 | r9_gb_all_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all | 0 | 0.95087 | 0.0033 |
+| r11_gb_all | 11 | GLM boost (LightGBM), --es inner, not adopted alone (bias check, D22) | as r8_gb_all | 0 | 0.95078 | |
 | r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
 | r7_gb_art_m3 | 7 | GLM boost | artefacts + TE at m 5/20/100 | 0 | 0.95076 | 0.0033 |
 | stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
@@ -58,6 +64,7 @@ rows added to each training fold (0 = not used).
 | r8_lgb_l4_all_kc | 8 | LightGBM, 4 leaves | as r8_gb_all_kc | 0 | 0.95050 | 0.0034 |
 | r4_gbx_d2 | 4 | XGBoost depth 2 started from the GLM's logit | as r3_glmboost | 0 | 0.95049 | 0.0034 |
 | r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
+| r11_lgb_l4_all_kc | 11 | LightGBM, 4 leaves, --es inner, not adopted alone (bias check, D22) | as r8_lgb_l4_all_kc | 0 | 0.95043 | |
 | r7_glm_joint_kc | 7 | spline GLM | joint keys + key counts | 0 | 0.95043 | 0.0032 |
 | r7_lgb_l4_art | 7 | LightGBM, 4 leaves | artefacts + TE | 0 | 0.95040 | 0.0035 |
 | r7_glm_m3 | 7 | spline GLM | TE at m 5/20/100 | 0 | 0.95037 | 0.0033 |
@@ -620,4 +627,23 @@ a chain, tens -> integer part -> 0.1 steps -> exact value, and each level's frau
 its parent's rate instead of the overall rate (cross-fitted inside the training fold). On the token-key GLM
 at m 20: 0.95080 against 0.95083, folds -10 -1 -1 +3 -6 (x 1e-5). Not adopted: the three flat m-estimate
 encodings of every level already carry what the chain adds.
+
+Round-eleven result: every booster loses a little when its rounds are picked away from the scored fold.
+
+| Run (`--es inner`) | CV | Round eight (`--es val`) | Change | Folds lower |
+| --- | --- | --- | --- | --- |
+| r11_gb_all_kc | 0.95092 | 0.95096 | -0.00004 | 5 of 5 |
+| r11_gbx_all_kc | 0.95087 | 0.95094 | -0.00007 | 5 of 5 |
+| r11_gb_all | 0.95078 | 0.95087 | -0.00009 | 5 of 5 |
+| r11_gbc_all_kc | 0.95082 | 0.95090 | -0.00007 | 4 of 5 |
+| r11_lgb_l4_all_kc | 0.95043 | 0.95050 | -0.00007 | 5 of 5 |
+
+So our booster CVs were inflated by about 0.00004 to 0.00009, the same size as busyaprime's (D21). The
+stacks do not move: the own-model stack with the five honest boosters in place of the round-eight ones
+scores 0.95133 (C=0.1; folds 0.95031 0.95183 0.95615 0.95235 0.94634) against 0.95132, and own 21 honest
++ wide LM stack scores 0.95247 against 0.95249. The stacker only uses where members disagree, and the
+inflation shifts each booster's OOF about evenly, so the stack CVs reported so far stand. The honest
+own-model stack is written as `submissions/stack_r11.csv` (Spearman 0.99998 with `stack_r10.csv`); it is
+the cleaner own-model final at the same CV. The older r4/r5/r7 boosters are not rerun: the measured effect
+on the stack is nil.
 

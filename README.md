@@ -76,6 +76,7 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | Logistic stack: our 21 models + 52 public OOF members (D19) |  | 0.95204 |
 | Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
+| Logistic stack of 22 own models (round eleven: boosters early-stopped inside the training fold) |  | 0.95133 |
 | Logistic stack of 22 own models (round ten: + GLM with GPT-2 token keys) |  | 0.95132 |
 | Logistic stack of 21 own models (round eight) |  | 0.95114 |
 | Logistic stack of 14 own models (round seven) |  | 0.95107 |
