@@ -12,40 +12,37 @@ rows added to each training fold (0 = not used).
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | **0.95107** | |
+| stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
 | r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
 | r7_gb_art_m3 | 7 | GLM boost | artefacts + TE at m 5/20/100 | 0 | 0.95076 | 0.0033 |
+| stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
 | r7_gb_m3 | 7 | GLM boost | TE at m 5/20/100 | 0 | 0.95068 | 0.0034 |
 | r7_gb_art | 7 | GLM boost | artefacts + TE | 0 | 0.95066 | 0.0033 |
+| stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | 0.95066 | |
 | r7_gb_joint | 7 | GLM boost, joint keys in the GLM | raw + TE | 0 | 0.95063 | 0.0034 |
+| stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | 0.95063 | |
+| r4_gb_s3 | 4 | GLM boost, 3 seeds averaged | as r3_glmboost | 0 | 0.95062 | 0.0034 |
 | r7_gb_kc | 7 | GLM boost, key counts | raw + TE | 0 | 0.95060 | 0.0033 |
+| r5_gb_spl8_s3 | 5 | GLM boost from the spline GLM, 3 seeds | as r3_glmboost | 0 | 0.95060 | 0.0033 |
+| r6_gbc_d4_s3 | 6 | CatBoost depth 4 GLM boost, 3 seeds | as r3_glmboost | 0 | 0.95058 | 0.0034 |
+| r4_gbc_d4 | 4 | CatBoost depth 4 started from the GLM's logit | as r3_glmboost | 0 | 0.95057 | 0.0034 |
+| r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95056 | 0.0034 |
+| r4_gb_lr015 | 4 | GLM boost, lr 0.015, feature fraction 0.3 | as r3_glmboost | 0 | 0.95055 | 0.0034 |
 | r7_glm_art_m3 | 7 | spline GLM | artefacts + TE at m 5/20/100 | 0 | 0.95053 | 0.0032 |
+| r4_gb_l8 | 4 | GLM boost, 8 leaves | as r3_glmboost | 0 | 0.95050 | 0.0034 |
+| r4_gbx_d2 | 4 | XGBoost depth 2 started from the GLM's logit | as r3_glmboost | 0 | 0.95049 | 0.0034 |
+| r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
 | r7_glm_joint_kc | 7 | spline GLM | joint keys + key counts | 0 | 0.95043 | 0.0032 |
 | r7_lgb_l4_art | 7 | LightGBM, 4 leaves | artefacts + TE | 0 | 0.95040 | 0.0035 |
 | r7_glm_m3 | 7 | spline GLM | TE at m 5/20/100 | 0 | 0.95037 | 0.0033 |
+| r5_lgb_l4_s3 | 5 | LightGBM, 4 leaves, 3 seeds | as r3_lgb_l4 | 0 | 0.95033 | 0.0034 |
 | r7_glm_art | 7 | spline GLM | artefacts + TE | 0 | 0.95028 | 0.0032 |
 | r7_glm_joint | 7 | spline GLM | joint keys | 0 | 0.95028 | 0.0033 |
 | r7_glm_kc | 7 | spline GLM | key counts | 0 | 0.95028 | 0.0032 |
 | r7_glm_pairs | 7 | spline GLM | 45 pair keys | 0 | 0.95024 | 0.0033 |
-| stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
-| stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
-| r6_gbc_d4_s3 | 6 | CatBoost depth 4 GLM boost, 3 seeds | as r3_glmboost | 0 | 0.95058 | 0.0034 |
-| r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
-| r6_mlp_lr3e4 | 6 | MLP 128-64, learning rate 3e-4, 3 seeds | as r5_mlp | 0 | 0.94715 | 0.0034 |
-| r5_gb_spl8_s3 | 5 | GLM boost from the spline GLM, 3 seeds | as r3_glmboost | 0 | 0.95060 | 0.0033 |
-| r5_lgb_l4_s3 | 5 | LightGBM, 4 leaves, 3 seeds | as r3_lgb_l4 | 0 | 0.95033 | 0.0034 |
-| r5_glm_spl16 | 5 | GLM + splines (16 knots) | logit TE + one-hot | 0 | 0.95006 | 0.0033 |
-| r5_mlp | 5 | MLP 64-32 on the spline GLM design, 3 seeds | logit TE + one-hot + splines | 0 | 0.94715 | 0.0035 |
-| r5_mlp_a1e2 | 5 | MLP 32, alpha 0.01, 3 seeds | as r5_mlp | 0 | 0.94578 | 0.0037 |
-| stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | 0.95066 | |
-| r4_gb_s3 | 4 | GLM boost, 3 seeds averaged | as r3_glmboost | 0 | 0.95062 | 0.0034 |
-| stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | 0.95063 | |
-| r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95056 | 0.0034 |
-| r4_gbc_d4 | 4 | CatBoost depth 4 started from the GLM's logit | as r3_glmboost | 0 | 0.95057 | 0.0034 |
-| r4_gbx_d2 | 4 | XGBoost depth 2 started from the GLM's logit | as r3_glmboost | 0 | 0.95049 | 0.0034 |
-| r4_gb_lr015 | 4 | GLM boost, lr 0.015, feature fraction 0.3 | as r3_glmboost | 0 | 0.95055 | 0.0034 |
-| r4_gb_l8 | 4 | GLM boost, 8 leaves | as r3_glmboost | 0 | 0.95050 | 0.0034 |
 | r3_lgb_l4 | 3 | LightGBM, 4 leaves | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95023 | 0.0035 |
 | r4_glm_spl8 | 4 | GLM + cubic splines (8 knots) on numeric columns | logit TE + one-hot | 0 | 0.95015 | 0.0033 |
+| r5_glm_spl16 | 5 | GLM + splines (16 knots) | logit TE + one-hot | 0 | 0.95006 | 0.0033 |
 | r3_glm | 3 | L2 logistic, C=0.01 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
 | r4_glm_c03 | 4 | GLM, C=0.03 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
 | r4_glm_cv10 | 4 | GLM, 10-way inner cross-fit | logit TE + one-hot | 0 | 0.94985 | 0.0034 |
@@ -55,18 +52,21 @@ rows added to each training fold (0 = not used).
 | lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
 | lgb_digits_te1 | 2 | LightGBM, 31 leaves | raw + digits + TE (exact values, rounded keys, cents) | 0 | 0.94854 | 0.0035 |
 | lgb_digits_te2 | 2 | LightGBM, 31 leaves | as above + 45 top-10 pairs | 0 | 0.94845 | 0.0034 |
-| stack of round one | 1 | logistic on 8 OOF | | | 0.94728 | |
 | lgb_raw_l4 | 2 | LightGBM, 4 leaves | raw | 0 | 0.94752 | 0.0030 |
+| stack of round one | 1 | logistic on 8 OOF | | | 0.94728 | |
+| r6_mlp_lr3e4 | 6 | MLP 128-64, learning rate 3e-4, 3 seeds | as r5_mlp | 0 | 0.94715 | 0.0034 |
+| r5_mlp | 5 | MLP 64-32 on the spline GLM design, 3 seeds | logit TE + one-hot + splines | 0 | 0.94715 | 0.0035 |
 | lgb_digits | 2 | LightGBM, 31 leaves | raw + first two decimal digits | 0 | 0.94712 | 0.0032 |
 | lgb_raw_o0 | 1 | LightGBM, 31 leaves | raw | 0 | 0.94690 | 0.0031 |
 | xgb_raw_o1 | 1 | XGBoost, depth 6 | raw | 1 | 0.94681 | 0.0033 |
 | lgb_raw_o1 | 1 | LightGBM, 31 leaves | raw | 1 | 0.94680 | 0.0032 |
 | xgb_ogte_o1 | 1 | XGBoost, depth 6 | raw + original per-value rates | 1 | 0.94676 | 0.0036 |
-| cat_ogte_o1 | 1 | CatBoost, depth 6 | raw + original per-value rates | 1 | 0.94654 | 0.0035 |
-| cat_raw_o1 | 1 | CatBoost, depth 6 | raw | 1 | 0.94610 | 0.0031 |
 | lgb_combo_o1 | 1 | LightGBM, 31 leaves | + ratios, flag count | 1 | 0.94659 | 0.0034 |
+| cat_ogte_o1 | 1 | CatBoost, depth 6 | raw + original per-value rates | 1 | 0.94654 | 0.0035 |
 | lgb_count_o1 | 1 | LightGBM, 31 leaves | + value frequencies | 1 | 0.94647 | 0.0036 |
 | lgb_ogte_o1 | 1 | LightGBM, 31 leaves | raw + original per-value rates | 1 | 0.94633 | 0.0034 |
+| cat_raw_o1 | 1 | CatBoost, depth 6 | raw | 1 | 0.94610 | 0.0031 |
+| r5_mlp_a1e2 | 5 | MLP 32, alpha 0.01, 3 seeds | as r5_mlp | 0 | 0.94578 | 0.0037 |
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
 
 Round four (D11) is running.
