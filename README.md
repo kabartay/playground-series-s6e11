@@ -71,28 +71,32 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 
 | Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| LightGBM, 31 leaves | raw columns | 0.94690 |
-| Logistic stack of 8 round-one models | | 0.94728 |
-| LightGBM, 31 leaves | + decimal digits | 0.94712 |
-| LightGBM, 31 leaves | + in-fold target encoding | 0.94854 |
-| LightGBM, 4 leaves | same features + pairs | 0.94923 |
-| XGBoost, depth 2 | same features + pairs | 0.94926 |
-| Logistic stack of 7 round-one and round-two models | | 0.94952 |
-| GLM (L2 logistic) | m-estimate encoding + full digit keys | 0.94987 |
-| LightGBM, 4 leaves | m-estimate encoding + full digit keys | 0.95023 |
-| GLM boost: 4-leaf LightGBM from the GLM's logit | m-estimate encoding + full digit keys | 0.95056 |
-| Logistic stack of round-three and round-two models | | 0.95063 |
-| GLM + cubic splines on the numeric columns | m-estimate encoding + full digit keys | 0.95015 |
+| Logistic stack: our 9 models + 38 public OOF members (D15) |  | **0.95175** |
+| Logistic stack of 14 own models (round seven) |  | 0.95107 |
+| Logistic stack of 9 own models (round five) |  | 0.95079 |
+| GLM boost: 4-leaf LightGBM from the GLM's logit | + joint keys, key counts | 0.95078 |
+| GLM boost | + pooled artefacts, TE at m 5/20/100 | 0.95076 |
+| Logistic stack of 7 own models (round four) |  | 0.95071 |
+| Logistic stack of 5 own models (round four) |  | 0.95066 |
+| Logistic stack of round-three and round-two models |  | 0.95063 |
 | GLM boost, 3 seeds averaged | m-estimate encoding + full digit keys | 0.95062 |
-| Logistic stack: GLM boost (3 seeds), 4-leaf LightGBM, spline GLM, raw 4-leaf LightGBM, depth-2 XGBoost | | 0.95066 |
-| XGBoost depth 2 / CatBoost depth 4 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95049 / 0.95057 |
-| The same stack plus XGBoost and CatBoost GLM boost | | **0.95071** |
+| CatBoost depth 4 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95057 |
+| GLM boost | m-estimate encoding + full digit keys | 0.95056 |
+| GLM + cubic splines on the numeric columns | + pooled artefacts, TE at m 5/20/100 | 0.95053 |
+| XGBoost depth 2 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95049 |
+| LightGBM, 4 leaves | m-estimate encoding + full digit keys | 0.95023 |
+| GLM + cubic splines on the numeric columns | m-estimate encoding + full digit keys | 0.95015 |
+| GLM (L2 logistic) | m-estimate encoding + full digit keys | 0.94987 |
+| Logistic stack of 7 round-one and round-two models |  | 0.94952 |
+| XGBoost, depth 2 | in-fold target encoding + pairs | 0.94926 |
+| LightGBM, 4 leaves | in-fold target encoding + pairs | 0.94923 |
+| LightGBM, 31 leaves | + in-fold target encoding | 0.94854 |
+| Logistic stack of 8 round-one models |  | 0.94728 |
 | MLP (64-32) on the spline GLM design | logit encodings + splines | 0.94715 |
-| Logistic stack of 9: the above plus MLP and spline-GLM boost | | **0.95079** |
-| GLM boost with artefacts + TE at m 5/20/100 | + pooled artefacts | 0.95076 |
-| GLM boost with joint keys + key counts | + joint keys, key counts | 0.95078 |
-| Logistic stack of 14 own models | | **0.95107** |
-| Round eight: everything combined, all member families | | running |
+| LightGBM, 31 leaves | + decimal digits | 0.94712 |
+| LightGBM, 31 leaves | raw columns | 0.94690 |
+
+Best first. Round eight (everything combined, every model family) is running.
 
 Leaderboard submissions:
 
