@@ -17,7 +17,10 @@ rows added to each training fold (0 = not used).
 | stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
 | stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
+| stack of round ten (own models) | 10 | logistic (C=0.1) on 22 OOF: round eight + r10_glm_tok | | | 0.95132 | |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
+| r10_gb_tok | 10 | GLM boost (LightGBM), not adopted (3 of 5 folds) | as r8_gb_all_kc + GPT-2 token keys and 3-digit chunks | 0 | 0.95110 | |
+| r10_gb_tok_l3 | 10 | GLM boost (LightGBM, 3 leaves), not adopted (3 of 5 folds) | as r10_gb_tok | 0 | 0.95109 | |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
 | r9_gb_all_kc_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all_kc | 0 | 0.95098 | 0.0032 |
 | r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
@@ -26,6 +29,7 @@ rows added to each training fold (0 = not used).
 | r9_gbc_all_kc_s3 | 9 | GLM boost (CatBoost depth 4), 3 seeds | as r8_gb_all_kc | 0 | 0.95091 | 0.0032 |
 | r8_gbc_all_kc | 8 | GLM boost (CatBoost depth 4) | as r8_gb_all_kc | 0 | 0.95090 | 0.0032 |
 | r8_gb_all | 8 | GLM boost (LightGBM) | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95087 | 0.0033 |
+| r10_glm_tok | 10 | spline GLM, adopted (4 of 5 folds) | as r8_glm_all + GPT-2 token keys and 3-digit chunks | 0 | 0.95083 | |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
 | r9_gb_all_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all | 0 | 0.95087 | 0.0033 |
 | r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
@@ -532,6 +536,19 @@ C=0.01).
 Own-model side (round ten, `jobs/r10a.txt` to `r10d.txt`): GPT-2 token keys and 3-digit chunks of each
 float column's integer part (`--keys tokens`; idea after aphoristicartist and busyaprime, written here
 independently) on the GLM and the three GLM-boost families.
+
+Round ten results (fold AUCs against round eight):
+
+| Run | CV AUC | vs | Change | Folds up |
+| --- | --- | --- | --- | --- |
+| r10_glm_tok | 0.95083 | r8_glm_all 0.95062 | +0.00022 | 4 of 5 (adopted) |
+| r10_gb_tok | 0.95110 | r8_gb_all_kc 0.95096 | +0.00013 | 3 of 5 (folds 4 and 5 carry it) |
+| r10_gb_tok_l3 | 0.95109 | r8_gb_all_kc 0.95096 | +0.00012 | 3 of 5 |
+
+Own-model stack with r10_glm_tok added: **0.95132** (C=0.1; round eight 0.95114), up on 4 folds, level on
+fold 2. Adding the two boosters as well gives 0.95127. Written: `submissions/stack_r10.csv`. With the wide
+LM stack on top (D21) the three round-ten members give 0.95241, below the wide stack alone. XGBoost and
+CatBoost versions (`r10c`, `r10d`) are still queued on Kaggle.
 
 ## D21. The nested wide stack, RealMLP v15, and an early-stopping check
 
