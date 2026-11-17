@@ -32,6 +32,7 @@ rows added to each training fold (0 = not used).
 | r8_gbc_all_kc | 8 | GLM boost (CatBoost depth 4) | as r8_gb_all_kc | 0 | 0.95090 | 0.0032 |
 | r8_gb_all | 8 | GLM boost (LightGBM) | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95087 | 0.0033 |
 | r10_glm_tok | 10 | spline GLM, adopted (4 of 5 folds) | as r8_glm_all + GPT-2 token keys and 3-digit chunks | 0 | 0.95083 | |
+| r11_glm_tok_hier | 11 | spline GLM + hierarchical encoding (m 20), not adopted (1 of 5 folds) | as r10_glm_tok + `--hier 20` | 0 | 0.95080 | |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
 | r9_gb_all_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all | 0 | 0.95087 | 0.0033 |
 | r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
@@ -613,4 +614,10 @@ scoring. `--es val` (the default) keeps the old behaviour so earlier runs stay r
 
 Round eleven (`jobs/r11a.txt` to `r11d.txt`) reruns the five round-eight boosters with `--es inner` to
 measure the bias on full folds.
+
+Hierarchical encoding (`--hier m`, idea after busyaprime's "hier" members): each float column's keys form
+a chain, tens -> integer part -> 0.1 steps -> exact value, and each level's fraud rate is shrunk towards
+its parent's rate instead of the overall rate (cross-fitted inside the training fold). On the token-key GLM
+at m 20: 0.95080 against 0.95083, folds -10 -1 -1 +3 -6 (x 1e-5). Not adopted: the three flat m-estimate
+encodings of every level already carry what the chain adds.
 
