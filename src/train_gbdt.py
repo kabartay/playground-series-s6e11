@@ -24,7 +24,7 @@ THREADS = int(os.environ.get("S6E11_THREADS", "4"))  # shared Mac: keep at 4 or 
 
 def glm_design(X: pd.DataFrame) -> np.ndarray:
     """Logit of every target-encoded column, one-hot categoricals, the 0/1 flags and any art_ features."""
-    te_cols = [c for c in X.columns if c.startswith("te_")]
+    te_cols = [c for c in X.columns if c.startswith(("te_", "tej_"))]
     q = np.clip(X[te_cols].to_numpy(dtype="float64"), 1e-5, 1 - 1e-5)
     parts = [
         np.log(q / (1 - q)),
@@ -249,6 +249,15 @@ def main() -> None:
         choices=["none", "glm"],
         help="glm: the trees start from an in-fold GLM's logit (GLM boost; lgb, xgb or cat)",
     )
+    ap.add_argument(
+        "--joint",
+        default="none",
+        choices=["none", "all", "glm"],
+        help="joint keys of non-additive column pairs: for every model (all) or the GLM only (glm)",
+    )
+    ap.add_argument(
+        "--key-counts", action="store_true", help="log count of every key's value over train + test"
+    )
     ap.add_argument("--te-cv", type=int, default=5, help="inner cross-fitting folds of the target encoder")
     ap.add_argument("--seeds", type=int, default=1, help="models per fold with different seeds, averaged")
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves nothing")
@@ -269,7 +278,16 @@ def main() -> None:
     if a.te != "none":
         from sklearn.preprocessing import TargetEncoder
 
-        Ktr, Kte, Kog = te_keys(tr, te, og, pairs=a.te == "pairs", digit_keys=a.keys == "full")
+        Ktr, Kte, Kog = te_keys(
+            tr, te, og, pairs=a.te == "pairs", digit_keys=a.keys == "full", joint=a.joint != "none"
+        )
+        if a.key_counts:
+            # Unsupervised: how many train + test rows share each key's value (no labels involved).
+            KK = pd.concat([Ktr, Kte], ignore_index=True)
+            for c in Ktr.columns:
+                vc = KK[c].value_counts()
+                for X, K in ((Xtr_all, Ktr), (Xte, Kte), (Xog, Kog)):
+                    X[f"art_kc_{c}"] = np.log1p(K[c].map(vc).fillna(0).to_numpy()).astype("float32")
         print(f"target-encoding {Ktr.shape[1]} keys in each fold", flush=True)
 
     def add_te(i_tr, i_va):
@@ -285,7 +303,8 @@ def main() -> None:
             smooth = sm if sm == "auto" else float(sm)
             enc = TargetEncoder(target_type="binary", smooth=smooth, cv=a.te_cv, random_state=0)
             suffix = "" if j == 0 else f"_m{sm}"
-            cols = [f"te_{c}{suffix}" for c in Ktr.columns]
+            pre = ["tej_" if a.joint == "glm" and c.startswith("j_") else "te_" for c in Ktr.columns]
+            cols = [f"{p}{c}{suffix}" for p, c in zip(pre, Ktr.columns, strict=True)]
             A = enc.fit_transform(Ktr.iloc[i_tr], y[i_tr]).astype("float32")
             for k, K in enumerate((None, Ktr.iloc[i_va], Kte, Kog)):
                 E = A if K is None else enc.transform(K).astype("float32")
@@ -313,6 +332,10 @@ def main() -> None:
             if a.orig > 0 or a.te == "none":
                 raise SystemExit("--offset glm needs --orig 0 and target encoding")
             init, _ = fit_glm(glm_params, Xa, ya, [Xa, Xva, Xte_k])
+        if a.model not in ("glm", "mlp"):
+            # tej_ columns (joint keys for the GLM only) feed the GLM offset but not the trees.
+            drop = [c for c in Xa.columns if c.startswith("tej_")]
+            Xa, Xva, Xte_k = (X.drop(columns=drop) for X in (Xa, Xva, Xte_k))
         n_seeds = 1 if a.model == "glm" else a.seeds
         pv, pt, it = 0.0, 0.0, 0
         for s in range(n_seeds):

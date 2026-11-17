@@ -1,0 +1,4 @@
+# Round seven, GLM boost (against r3_glmboost 0.95056): joint keys in the GLM; key counts for the trees; both
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --joint glm --offset glm --name r7_gb_joint --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --key-counts --offset glm --name r7_gb_kc --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
+--model lgb --fe raw --te single --keys full --te-smooth 20 --orig 0 --joint glm --key-counts --offset glm --name r7_gb_joint_kc --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}

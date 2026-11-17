@@ -1,0 +1,4 @@
+# Round seven, GLM (against r4_glm_spl8 0.95015): joint keys; counts of every key's value; both
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --joint glm --name r7_glm_joint --params {"splines":8}
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --key-counts --name r7_glm_kc --params {"splines":8}
+--model glm --fe raw --te single --keys full --te-smooth 20 --orig 0 --joint glm --key-counts --name r7_glm_joint_kc --params {"splines":8}

@@ -134,14 +134,34 @@ def fe_digits(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.D
     ]
 
 
+JOINT = [
+    ("category_risk", ("merchant_category", "merchant_risk_score")),
+    ("foreign_ip", ("is_foreign_transaction", "ip_country_mismatch")),
+    ("category_amount", ("merchant_category", "q:amount_usd")),
+    ("txn_velocity", ("txn_count_last_24h", "q:velocity_score")),
+    ("category_age", ("merchant_category", "customer_age")),
+    ("amount_risk", ("q:amount_usd", "q:merchant_risk_score")),
+    ("hours_velocity", ("q:hours_since_last_txn", "q:velocity_score")),
+    ("age_risk", ("customer_age", "q:merchant_risk_score")),
+]
+"""Column pairs whose effect on fraud is not additive, as measured and published in megayak's notebook
+"S6E11 | Per-Value + Digit TE | Shallow-Tree Stack" (Apache-2.0); "q:" means deciles of a float column."""
+
+
 def te_keys(
-    tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame, pairs: bool, digit_keys: bool = False
+    tr: pd.DataFrame,
+    te: pd.DataFrame,
+    og: pd.DataFrame,
+    pairs: bool,
+    digit_keys: bool = False,
+    joint: bool = False,
 ) -> list[pd.DataFrame]:
     """Integer category keys for in-fold target encoding (train, test, original), built on the union of rows.
 
     Every column's exact value is a key (when it has at most half as many levels as rows); continuous
     columns are also keyed on rounded values; decimal endings are keys; with `pairs`, every pair among
-    TE_TOP is a key. The encoding itself happens inside each fold in train_gbdt.py.
+    TE_TOP is a key; with `joint`, every pair in JOINT is a key named j_<name>. The encoding itself happens
+    inside each fold in train_gbdt.py.
     """
     import numpy as np
 
@@ -176,6 +196,15 @@ def te_keys(
 
         for a, b in combinations(TE_TOP, 2):
             keys[f"k_{a}__{b}"] = pd.factorize(both[a].astype(str) + "_" + both[b].astype(str))[0]
+    if joint:
+        for name, cols in JOINT:
+            parts = [
+                pd.qcut(both[c[2:]], 10, labels=False, duplicates="drop").astype(str)
+                if c.startswith("q:")
+                else both[c].astype(str)
+                for c in cols
+            ]
+            keys[f"j_{name}"] = pd.factorize(parts[0] + "_" + parts[1])[0]
     k = pd.DataFrame(keys).astype("int32")
     n1, n2 = len(tr), len(tr) + len(te)
     return [
