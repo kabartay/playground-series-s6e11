@@ -13,6 +13,8 @@ rows added to each training fold (0 = not used).
 | --- | --- | --- | --- | --- | --- | --- |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | **0.95079** | |
 | stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
+| r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
+| r6_mlp_lr3e4 | 6 | MLP 128-64, learning rate 3e-4, 3 seeds | as r5_mlp | 0 | 0.94715 | 0.0034 |
 | r5_gb_spl8_s3 | 5 | GLM boost from the spline GLM, 3 seeds | as r3_glmboost | 0 | 0.95060 | 0.0033 |
 | r5_lgb_l4_s3 | 5 | LightGBM, 4 leaves, 3 seeds | as r3_lgb_l4 | 0 | 0.95033 | 0.0034 |
 | r5_glm_spl16 | 5 | GLM + splines (16 knots) | logit TE + one-hot | 0 | 0.95006 | 0.0033 |
@@ -303,3 +305,48 @@ the same folds, so a selection effect of the order of 0.00002 is possible.
 
 Round six: CatBoost GLM boost with 3 seeds (`jobs/r6a.txt`), depth 6 and a slower, wider MLP
 (`jobs/r6b.txt`).
+
+## D14. Round six, and the search for more artefacts
+
+Round six (`jobs/r6b.txt`): CatBoost GLM boost at depth 6 scores 0.95048 (depth 4: 0.95057), dropped; a
+slower, wider MLP scores 0.94715, the same as round five's. `jobs/r6a.txt` (CatBoost GLM boost, 3 seeds) is
+still running.
+
+`src/research_artefacts.py` measures pooled effects that per-value encodings cannot see, because each rare
+value is smoothed towards the base rate on its own (base fraud rate 1.670%):
+
+- **Values the original data never contains.** 2.6% of `amount_usd` values (fraud 2.42% against 1.65%);
+  the 178 `velocity_score` and 91 `merchant_risk_score` values outside the original are fraud at 5.6% and
+  5.5%. 15% of `account_balance_usd` values are new, with no effect (1.71% against 1.66%).
+- **Pairs copied from one original row.** 105,697 rows repeat a (`velocity_score`, `merchant_risk_score`)
+  pair of one original row: fraud 0.81%. (`distance_from_home_km`, `velocity_score`): 26,196 rows, 0.56%.
+  No row repeats a whole original row, and no feature row occurs twice in train + test.
+- **How often a value occurs.** `velocity_score` and `merchant_risk_score` values that occur 20-100 times in
+  train + test are fraud at 10.3%; rare `amount_usd` values (at most 20 occurrences) at 3.2-3.9%.
+
+These become `--fe art` (log counts, "occurs in the original" flags and 15 copied-pair flags; no labels
+used). Round seven (`jobs/r7a.txt` to `r7e.txt`) tests them one change at a time, together with encodings at
+three smoothing weights (`--te-smooth 5,20,100`), pair keys for the GLM, and two ideas measured in megayak's
+public notebook (Apache-2.0), written here independently: joint keys of non-additive column pairs
+(`--joint`; merchant category x risk score is the strongest) and the count of every key's value
+(`--key-counts`).
+
+## D15. Public OOF members (the second track)
+
+Several public datasets publish OOF and test predictions on the same split as ours
+(`StratifiedKFold(5, shuffle=True, random_state=42)` on `train.csv` order). `src/import_public.py` imports
+them as `runs/pub_*` after checking shapes, finite values, that the source's fold file equals our folds row
+by row, and that our AUC matches the one the source reports. 38 members pass: goodpjw2008's 20 core members
+(CC0), mathsonchain's 17 (CC BY 4.0) and masayakawamata's GPT-2 target-first classifier (CC BY 4.0).
+alexchilton's 39 ship no fold file, so they are not used.
+
+| Stack (logistic, C=0.01) | Members | Nested CV | Folds |
+| --- | --- | --- | --- |
+| ours (D13) | 9 | 0.95079 | 0.95006 0.95156 0.95575 0.95178 0.94538 |
+| public only | 38 | 0.95165 | 0.95077 0.95230 0.95676 0.95192 0.94686 |
+| ours + public | 47 | **0.95175** | 0.95081 0.95230 0.95682 0.95221 0.94696 |
+
+The GPT-2 member, a language model reading each row as text, takes weight 0.55 of 47: it errs differently
+from every tree and GLM. The public members' authors chose their recipes on these same folds, so part of the
++0.001 may be selection. Written to `submissions/stack_pub1.csv`; the two final picks will be one stack of
+our own models and one with public members.

@@ -120,6 +120,8 @@ Leaderboard submissions:
 | 4-leaf LightGBM, 3 seeds | +0.0001 | adopted |
 | GLM splines with 16 knots instead of 8 | -0.00009 | dropped |
 | MLP on the spline GLM design | 0.94715 alone; stack +0.00003 | stack member |
+| CatBoost GLM boost at depth 6 instead of 4 | -0.00009 | dropped |
+| Public OOF members (38, fold-checked) added to our 9 | stack +0.00096 | second track (D15) |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
@@ -169,6 +171,8 @@ cd src
 | `  --rows 20000 --folds 1` | smoke test on a stratified subsample; saves nothing |
 | `  --orig W` | weight of the original rows in each training fold (0 drops them) |
 | `  --params '{"num_leaves": 4}' --folds 1` | model overrides; a one-fold check that saves nothing |
+| `src/import_public.py` | import public OOF/test predictions from `data/public/` as `runs/pub_*`, after fold and AUC checks |
+| `src/research_artefacts.py` | measure pooled generator artefacts (values absent from the original, copied pairs, value counts) |
 | `src/stack.py RUN [RUN ...] [--method {logistic,hill}] [--out FILE]` | rank average, logistic stacks and hill climbing, each scored by nested CV; optional submission |
 | `src/train_fintfm.py --strategy balanced --folds 1 --rows 20000 --name N` | FinTFM zero-shot on the shared folds |
 | `scripts/queue_kernel.sh K [--internet]` | run `jobs/K.txt` in a private Kaggle CPU kernel when a slot frees, then fetch `runs/` |
@@ -229,5 +233,11 @@ Thanks to Kaggle for the Playground Series and to the author of the original Cre
 [Georgy Mamarin](https://www.kaggle.com/code/georgymamarin/s6e11-fraud-glm-offset-trees-review-budgets),
 [Alex Chilton](https://www.kaggle.com/code/alexchilton/credit-card-fraud-lb-0-9542-shallow-tree-stack) and
 [evgendvorkin](https://www.kaggle.com/code/evgendvorkin/s6e11-deep-eda-artifacts-xgb-oof-0-950285); the
-code here is written independently. The FinTFM notebook takes its shape from
+code here is written independently. Joint keys and key counts follow measurements published in
+[megayak's notebook](https://www.kaggle.com/code/megayak/s6e11-per-value-digit-te-shallow-tree-stack) (Apache-2.0).
+The public-member stacks use out-of-fold predictions published by
+[goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0),
+[mathsonchain](https://www.kaggle.com/datasets/mathsonchain/s6e11-fraud-oof-test-17-single-models) (CC BY 4.0) and
+[Masaya Kawamata](https://www.kaggle.com/datasets/masayakawamata/s6e11-gpt2-target-first-oof) (CC BY 4.0; GPT-2
+target-first method by Chris Deotte, replica step after Borisov et al., GReaT, ICLR 2023). The FinTFM notebook takes its shape from
 [Psi's TabPFN-3.5 starter](https://www.kaggle.com/code/philippsinger/tabpfn-3-5-starter-playground-series-s6e11).
