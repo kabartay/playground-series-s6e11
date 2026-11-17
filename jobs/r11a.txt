@@ -1,0 +1,2 @@
+# Round eleven: honest early stopping (--es inner), LightGBM GLM boost of round eight
+--model lgb --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --es inner --key-counts --offset glm --name r11_gb_all_kc --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}

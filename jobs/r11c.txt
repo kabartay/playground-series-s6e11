@@ -1,0 +1,2 @@
+# Round eleven: honest early stopping, CatBoost GLM boost
+--model cat --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --es inner --key-counts --offset glm --name r11_gbc_all_kc --params {"depth":4,"learning_rate":0.05,"iterations":20000}

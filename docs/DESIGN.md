@@ -22,7 +22,9 @@ rows added to each training fold (0 = not used).
 | r10_gb_tok | 10 | GLM boost (LightGBM), not adopted (3 of 5 folds) | as r8_gb_all_kc + GPT-2 token keys and 3-digit chunks | 0 | 0.95110 | |
 | r10_gb_tok_l3 | 10 | GLM boost (LightGBM, 3 leaves), not adopted (3 of 5 folds) | as r10_gb_tok | 0 | 0.95109 | |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
+| r10_gbx_tok | 10 | GLM boost (XGBoost depth 2), not adopted (2 of 5 folds) | as r10_gb_tok | 0 | 0.95104 | |
 | r9_gb_all_kc_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all_kc | 0 | 0.95098 | 0.0032 |
+| r10_gbc_tok | 10 | GLM boost (CatBoost depth 4), not adopted (3 of 5 folds) | as r10_gb_tok | 0 | 0.95097 | |
 | r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
 | r8_gbx_all_kc | 8 | GLM boost (XGBoost depth 2) | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
 | r9_gbx_all_kc_s3 | 9 | GLM boost (XGBoost depth 2), 3 seeds | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
@@ -544,11 +546,13 @@ Round ten results (fold AUCs against round eight):
 | r10_glm_tok | 0.95083 | r8_glm_all 0.95062 | +0.00022 | 4 of 5 (adopted) |
 | r10_gb_tok | 0.95110 | r8_gb_all_kc 0.95096 | +0.00013 | 3 of 5 (folds 4 and 5 carry it) |
 | r10_gb_tok_l3 | 0.95109 | r8_gb_all_kc 0.95096 | +0.00012 | 3 of 5 |
+| r10_gbx_tok | 0.95104 | r8_gbx_all_kc 0.95094 | +0.00010 | 2 of 5 |
+| r10_gbc_tok | 0.95097 | r8_gbc_all_kc 0.95090 | +0.00007 | 3 of 5 |
 
 Own-model stack with r10_glm_tok added: **0.95132** (C=0.1; round eight 0.95114), up on 4 folds, level on
-fold 2. Adding the two boosters as well gives 0.95127. Written: `submissions/stack_r10.csv`. With the wide
-LM stack on top (D21) the three round-ten members give 0.95241, below the wide stack alone. XGBoost and
-CatBoost versions (`r10c`, `r10d`) are still queued on Kaggle.
+fold 2. Adding the boosters as well gives 0.95127 (two LightGBM) and 0.95128 (all four). Written: `submissions/stack_r10.csv`. With the wide
+LM stack on top (D21) the three round-ten members give 0.95241, below the wide stack alone. In every booster family the token
+keys lose on folds 1 and 2 and gain about 0.0004 on folds 4 and 5.
 
 ## D21. The nested wide stack, RealMLP v15, and an early-stopping check
 
@@ -594,4 +598,19 @@ Reading:
 - The public-member track is now limited by the wide stack, not by our members. Written:
   `submissions/stack_pub5.csv` (own 21 + wide LM stack, C=0.01), the best file that still contains our
   models.
+
+## D22. Our boosters early-stopped on the validation fold
+
+Reading `train_gbdt.py` after D21: every LightGBM, XGBoost and CatBoost run so far early-stopped on the
+fold it was then scored on (`eval_set` = the validation fold, patience 200), the same flaw for which D20
+and D21 left out public members. Each OOF is optimistic by the gain of picking the round count on its own
+labels, and the stacker trusts those members a little too much.
+
+Fix, `--es inner`: the rounds are picked on a stratified 10% holdout of the training fold, then the model
+is refit on the whole training fold for that count / 0.9 rounds; the validation fold is used only for
+scoring. `--es val` (the default) keeps the old behaviour so earlier runs stay reproducible. Smoke test on
+40,000 rows (LightGBM GLM boost): 0.93434 with `val`, 0.93388 with `inner`.
+
+Round eleven (`jobs/r11a.txt` to `r11d.txt`) reruns the five round-eight boosters with `--es inner` to
+measure the bias on full folds.
 

@@ -103,10 +103,24 @@ def fit_mlp(params: dict, Xtr, ytr, Xs: list, seed: int = 0) -> tuple[list[np.nd
     return [m.predict_proba(sc.transform(design(X)))[:, 1] for X in Xs], int(m.n_iter_)
 
 
-def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=None, seed: int = 0):
-    """Train one fold with early stopping on the validation fold; return (val_pred, test_pred, best_iter).
+def fit_predict(
+    model: str,
+    params: dict,
+    Xtr,
+    ytr,
+    wtr,
+    Xva,
+    yva,
+    Xte,
+    init=None,
+    seed: int = 0,
+    n_iter: int | None = None,
+):
+    """Train one fold; return (val_pred, test_pred, best_iter).
 
-    `init` is an optional (train, val, test) tuple of logits that the trees start from (GLM boost);
+    Boosters early-stop on (Xva, yva) unless `n_iter` is given, in which case they train exactly that many
+    rounds and never see yva (used by `--es inner`, which picks n_iter on a holdout inside the training
+    fold). `init` is an optional (train, val, test) tuple of logits that the trees start from (GLM boost);
     predictions are then that logit plus the trees' raw score. `seed` sets the model's random seed.
     """
     if model == "glm":
@@ -134,24 +148,31 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             random_state=seed,
         )
         p.update(params)
+        if n_iter is not None:
+            p["n_estimators"] = n_iter
         m = lgb.LGBMClassifier(**p)
-        extra = {} if init is None else {"init_score": init[0], "eval_init_score": [init[1]]}
-        m.fit(
-            Xtr,
-            ytr,
-            sample_weight=wtr,
-            eval_set=[(Xva, yva)],
-            eval_metric="auc",
-            callbacks=[lgb.early_stopping(200, verbose=False)],
-            **extra,
-        )
+        if n_iter is None:
+            extra = {} if init is None else {"init_score": init[0], "eval_init_score": [init[1]]}
+            m.fit(
+                Xtr,
+                ytr,
+                sample_weight=wtr,
+                eval_set=[(Xva, yva)],
+                eval_metric="auc",
+                callbacks=[lgb.early_stopping(200, verbose=False)],
+                **extra,
+            )
+            best = m.best_iteration_
+        else:
+            m.fit(Xtr, ytr, sample_weight=wtr, **({} if init is None else {"init_score": init[0]}))
+            best = n_iter
         if init is not None:
             return (
                 m.predict(Xva, raw_score=True) + init[1],
                 m.predict(Xte, raw_score=True) + init[2],
-                m.best_iteration_,
+                best,
             )
-        return m.predict_proba(Xva)[:, 1], m.predict_proba(Xte)[:, 1], m.best_iteration_
+        return m.predict_proba(Xva)[:, 1], m.predict_proba(Xte)[:, 1], best
     if model == "xgb":
         import xgboost as xgb
 
@@ -172,10 +193,17 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             random_state=seed,
         )
         p.update(params)
+        if n_iter is not None:
+            p.update(n_estimators=n_iter, early_stopping_rounds=None)
         m = xgb.XGBClassifier(**p)
-        extra = {} if init is None else {"base_margin": init[0], "base_margin_eval_set": [init[1]]}
-        m.fit(Xtr, ytr, sample_weight=wtr, eval_set=[(Xva, yva)], verbose=False, **extra)
-        it = m.best_iteration + 1
+        if n_iter is None:
+            extra = {} if init is None else {"base_margin": init[0], "base_margin_eval_set": [init[1]]}
+            m.fit(Xtr, ytr, sample_weight=wtr, eval_set=[(Xva, yva)], verbose=False, **extra)
+            it = m.best_iteration + 1
+        else:
+            extra = {} if init is None else {"base_margin": init[0]}
+            m.fit(Xtr, ytr, sample_weight=wtr, verbose=False, **extra)
+            it = n_iter
         if init is not None:
             return (
                 m.predict(Xva, output_margin=True, base_margin=init[1], iteration_range=(0, it)),
@@ -203,6 +231,10 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             random_seed=seed,
         )
         p.update(params)
+        if n_iter is not None:
+            p["iterations"] = n_iter
+            p.pop("od_type")
+            p.pop("od_wait")
         cats = [c for c in CATS if c in Xtr.columns]
 
         def pool(X, y=None, w=None, base=None):
@@ -212,6 +244,16 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
             return Pool(X, y, weight=w, cat_features=cats, baseline=base)
 
         m = CatBoostClassifier(**p)
+        if n_iter is not None:
+            m.fit(pool(Xtr, ytr, wtr, None if init is None else init[0]))
+            if init is not None:
+                raw = "RawFormulaVal"
+                return (
+                    m.predict(pool(Xva), prediction_type=raw) + init[1],
+                    m.predict(pool(Xte), prediction_type=raw) + init[2],
+                    n_iter,
+                )
+            return m.predict_proba(pool(Xva))[:, 1], m.predict_proba(pool(Xte))[:, 1], n_iter
         if init is not None:
             m.fit(pool(Xtr, ytr, wtr, init[0]), eval_set=pool(Xva, yva, base=init[1]), use_best_model=True)
             raw = "RawFormulaVal"
@@ -223,6 +265,25 @@ def fit_predict(model: str, params: dict, Xtr, ytr, wtr, Xva, yva, Xte, init=Non
         m.fit(pool(Xtr, ytr, wtr), eval_set=pool(Xva, yva), use_best_model=True)
         return m.predict_proba(pool(Xva))[:, 1], m.predict_proba(pool(Xte))[:, 1], m.get_best_iteration()
     raise ValueError(model)
+
+
+def inner_rounds(model: str, params: dict, Xa, ya, wa, init, seed: int, fold: int) -> int:
+    """Boosting rounds for one fold, chosen without the validation fold.
+
+    Early-stops on a stratified 10% holdout of the training rows, then scales the best round count by
+    1/0.9 for the refit on all training rows. With GLM boost the holdout's starting logits come from the
+    fold's GLM, which saw those rows; that can only shift the round count, never the validation fold.
+    """
+    from sklearn.model_selection import train_test_split
+
+    pos = np.arange(len(ya))
+    inn, hold = train_test_split(pos, test_size=0.1, stratify=ya, random_state=100 + fold)
+    sub = None if init is None else (init[0][inn], init[0][hold], init[0][hold])
+    Xi = Xa.iloc[inn] if hasattr(Xa, "iloc") else Xa[inn]
+    Xh = Xa.iloc[hold] if hasattr(Xa, "iloc") else Xa[hold]
+    _, _, best = fit_predict(model, params, Xi, ya[inn], wa[inn], Xh, ya[hold], Xh, sub, seed=seed)
+    best = int(best) + (1 if model == "cat" else 0)  # CatBoost reports a 0-based index
+    return max(1, round(best / 0.9))
 
 
 def main() -> None:
@@ -262,6 +323,13 @@ def main() -> None:
         "--key-counts", action="store_true", help="log count of every key's value over train + test"
     )
     ap.add_argument("--te-cv", type=int, default=5, help="inner cross-fitting folds of the target encoder")
+    ap.add_argument(
+        "--es",
+        default="val",
+        choices=["val", "inner"],
+        help="boosters: early-stop on the validation fold (val, optimistic OOF; runs before D22) or pick the"
+        " rounds on a 10%% holdout of the training fold and refit on all of it (inner, honest OOF)",
+    )
     ap.add_argument("--seeds", type=int, default=1, help="models per fold with different seeds, averaged")
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves nothing")
     a = ap.parse_args()
@@ -348,7 +416,11 @@ def main() -> None:
         n_seeds = 1 if a.model == "glm" else a.seeds
         pv, pt, it = 0.0, 0.0, 0
         for s in range(n_seeds):
-            v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, y[i_va], Xte_k, init, seed=s)
+            if a.es == "inner" and a.model in ("lgb", "xgb", "cat"):
+                n = inner_rounds(a.model, params, Xa, ya, wa, init, seed=s, fold=k)
+                v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, None, Xte_k, init, seed=s, n_iter=n)
+            else:
+                v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, y[i_va], Xte_k, init, seed=s)
             pv, pt, it = pv + v / n_seeds, pt + t / n_seeds, it + int(i) // n_seeds
         oof[i_va] = pv
         test += pt / len(fl)
