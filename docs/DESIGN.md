@@ -13,11 +13,15 @@ rows added to each training fold (0 = not used).
 | --- | --- | --- | --- | --- | --- | --- |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | **0.95114** | |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
+| r9_gb_all_kc_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all_kc | 0 | 0.95098 | 0.0032 |
 | r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
 | r8_gbx_all_kc | 8 | GLM boost (XGBoost depth 2) | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
+| r9_gbx_all_kc_s3 | 9 | GLM boost (XGBoost depth 2), 3 seeds | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
+| r9_gbc_all_kc_s3 | 9 | GLM boost (CatBoost depth 4), 3 seeds | as r8_gb_all_kc | 0 | 0.95091 | 0.0032 |
 | r8_gbc_all_kc | 8 | GLM boost (CatBoost depth 4) | as r8_gb_all_kc | 0 | 0.95090 | 0.0032 |
 | r8_gb_all | 8 | GLM boost (LightGBM) | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95087 | 0.0033 |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
+| r9_gb_all_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all | 0 | 0.95087 | 0.0033 |
 | r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
 | r7_gb_art_m3 | 7 | GLM boost | artefacts + TE at m 5/20/100 | 0 | 0.95076 | 0.0033 |
 | stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
@@ -36,6 +40,7 @@ rows added to each training fold (0 = not used).
 | r8_glm_all | 8 | spline GLM | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95062 | 0.0031 |
 | r8_glm_all_kc | 8 | spline GLM | as r8_glm_all + key counts | 0 | 0.95062 | 0.0032 |
 | r7_glm_art_m3 | 7 | spline GLM | artefacts + TE at m 5/20/100 | 0 | 0.95053 | 0.0032 |
+| r9_lgb_l4_all_kc_s3 | 9 | LightGBM, 4 leaves, 3 seeds | as r8_gb_all_kc | 0 | 0.95052 | 0.0034 |
 | r4_gb_l8 | 4 | GLM boost, 8 leaves | as r3_glmboost | 0 | 0.95050 | 0.0034 |
 | r8_lgb_l4_all_kc | 8 | LightGBM, 4 leaves | as r8_gb_all_kc | 0 | 0.95050 | 0.0034 |
 | r4_gbx_d2 | 4 | XGBoost depth 2 started from the GLM's logit | as r3_glmboost | 0 | 0.95049 | 0.0034 |
@@ -429,4 +434,26 @@ Stacks (nested CV, folds in order):
 | own + r8_mlp_all | 22 | 0.95114 | | no gain |
 | ours + public | 21 + 38 public | **0.95183** (C=0.01) | 0.95091 0.95229 0.95689 0.95231 0.94704 | stack_pub1 0.95175, 4 of 5 up |
 
-Next (step 4): seed-bag the round-eight members that carry the stack weight and rebuild both stacks.
+## D18. Round nine: seed bags (step 4)
+
+Each round-eight tree member retrained with 3 seeds averaged (`jobs/r9a.txt` to `r9d.txt`):
+
+| Run | CV AUC | Against | Folds up |
+| --- | --- | --- | --- |
+| r9_gb_all_kc_s3 | 0.95098 | r8_gb_all_kc 0.95096 | 3 |
+| r9_gbx_all_kc_s3 | 0.95094 | r8_gbx_all_kc 0.95094 | 2 |
+| r9_gbc_all_kc_s3 | 0.95091 | r8_gbc_all_kc 0.95090 | 2 |
+| r9_gb_all_s3 | 0.95087 | r8_gb_all 0.95087 | 2 |
+| r9_lgb_l4_all_kc_s3 | 0.95052 | r8_lgb_l4_all_kc 0.95050 | 5 |
+
+Seed averaging moves single models by at most +0.00002: with 4-leaf trees, low learning rates and a GLM
+start, seed variance is already small. In the stacks it does not help:
+
+| Stack | Own models | Ours + public |
+| --- | --- | --- |
+| round eight (D17) | **0.95114** | **0.95183** |
+| seed bags in place of the round-eight runs | 0.95112 | 0.95179 |
+| seed bags added alongside | 0.95113 | 0.95182 |
+
+Dropped. The final candidates stay `stack_r8.csv` (own models, 0.95114) and `stack_pub2.csv` (with
+public members, 0.95183).

@@ -140,6 +140,7 @@ Leaderboard submissions:
 | 45 pair keys in the GLM | +0.00009 | dropped |
 | All round-seven features in XGBoost and CatBoost GLM boost | +0.00045 and +0.00033, 5 of 5 | adopted |
 | MLP on the full round-seven design | -0.00049 | dropped |
+| 3-seed bags of the round-eight trees | single models +0.00000 to +0.00002; stacks -0.00001 to -0.00004 | dropped |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
