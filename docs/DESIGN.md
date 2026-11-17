@@ -13,6 +13,7 @@ rows added to each training fold (0 = not used).
 | --- | --- | --- | --- | --- | --- | --- |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | **0.95079** | |
 | stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
+| r6_gbc_d4_s3 | 6 | CatBoost depth 4 GLM boost, 3 seeds | as r3_glmboost | 0 | 0.95058 | 0.0034 |
 | r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
 | r6_mlp_lr3e4 | 6 | MLP 128-64, learning rate 3e-4, 3 seeds | as r5_mlp | 0 | 0.94715 | 0.0034 |
 | r5_gb_spl8_s3 | 5 | GLM boost from the spline GLM, 3 seeds | as r3_glmboost | 0 | 0.95060 | 0.0033 |
@@ -309,8 +310,9 @@ Round six: CatBoost GLM boost with 3 seeds (`jobs/r6a.txt`), depth 6 and a slowe
 ## D14. Round six, and the search for more artefacts
 
 Round six (`jobs/r6b.txt`): CatBoost GLM boost at depth 6 scores 0.95048 (depth 4: 0.95057), dropped; a
-slower, wider MLP scores 0.94715, the same as round five's. `jobs/r6a.txt` (CatBoost GLM boost, 3 seeds) is
-still running.
+slower, wider MLP scores 0.94715, the same as round five's. `jobs/r6a.txt`: CatBoost GLM boost with 3 seeds scores
+0.95058 (one seed: 0.95057, 3 of 5 folds up); swapped into the round-five stack it gives 0.95081 against
+0.95079, within noise. Kept as the CatBoost member from now on.
 
 `src/research_artefacts.py` measures pooled effects that per-value encodings cannot see, because each rare
 value is smoothed towards the base rate on its own (base fraud rate 1.670%):
