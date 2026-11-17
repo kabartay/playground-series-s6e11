@@ -1,0 +1,3 @@
+# Round eight: XGBoost and CatBoost GLM boost on the same features (stack diversity)
+--model xgb --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --offset glm --name r8_gbx_all_kc --params {"max_depth":2,"learning_rate":0.03,"colsample_bytree":0.5,"min_child_weight":5,"reg_lambda":1.0,"n_estimators":20000}
+--model cat --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --offset glm --name r8_gbc_all_kc --params {"depth":4,"learning_rate":0.05,"iterations":20000}

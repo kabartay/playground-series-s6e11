@@ -1,0 +1,3 @@
+# Round eight, LightGBM GLM boost with all of round seven's winners, with and without key counts
+--model lgb --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --offset glm --name r8_gb_all --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}
+--model lgb --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --offset glm --name r8_gb_all_kc --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}

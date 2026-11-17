@@ -1,0 +1,4 @@
+# Round eight, GLM: round seven's winners together (artefacts, m 5/20/100, joint keys), with and without key counts
+--model glm --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --name r8_glm_all --params {"splines":8}
+--model glm --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --name r8_glm_all_kc --params {"splines":8}
+--model mlp --fe art --te single --keys full --te-smooth 5,20,100 --orig 0 --joint glm --seeds 3 --name r8_mlp_all --params {"splines":8}
