@@ -99,6 +99,7 @@ Leaderboard submissions:
 | 2026-11-03 | FinTFM zero-shot, 2,000-row context | 0.8759 (20% holdout) | 0.88790 |
 | 2026-11-16 | Logistic stack of 7 round-one and round-two models | 0.94952 (5-fold CV) | 0.94982 |
 | 2026-11-16 | Logistic stack of 9 (GLM boost ×3 families, 4-leaf LightGBM, spline GLM, MLP) | 0.95079 (5-fold CV) | 0.95113 |
+| 2026-11-17 | The same 9 plus 38 public OOF members (D15) | 0.95175 (5-fold CV) | 0.95165 |
 
 ## What worked and what did not
 
