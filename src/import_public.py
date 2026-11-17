@@ -190,16 +190,51 @@ def members() -> list[dict]:
                         note=f"{m.get('version', '')} {h}",
                     )
                 )
+    # goodpjw2008's series artifacts: the two nested wide stacks only (single models duplicate the bank).
+    d = PUB / "goodpjw2008__s6e11-fraud-series-artifacts"
+    if d.exists():
+        for name in ("wide_lm_stack", "wide_stack"):
+            out.append(
+                dict(
+                    tag="fa",
+                    name=name,
+                    oof=d / f"{name}_nested.npy",
+                    test=d / f"{name}_test.npy",
+                    auc=None,
+                    folds=STATED,
+                    source="goodpjw2008/s6e11-fraud-series-artifacts",
+                    note="logistic stack of about 90 public members, nested on the shared split; CC0",
+                )
+            )
+    # yekenot's RealMLP outputs (seed-42 split; pytabkit: 3 epochs, no early stopping).
+    for kind, auc in (("pytabkit", 0.95031), ("pytorch", 0.95002)):
+        d = PUB / f"yekenot__realmlp-{kind}"
+        if d.exists():
+            out.append(
+                dict(
+                    tag="ym",
+                    name=f"realmlp_{kind}",
+                    oof=(d / "oof_preds.csv", "is_fraud"),
+                    test=(d / "submission.csv", "is_fraud"),
+                    auc=auc,
+                    folds=STATED,
+                    source=f"yekenot/ps-s6-e11-realmlp-{kind} (notebook output)",
+                    note="RealMLP, 5-fold OOF and fold-mean test; ids checked against train/sample order",
+                )
+            )
     return out
 
 
 def load_array(src: Path | tuple[Path, str] | tuple[Path, int]) -> np.ndarray:
-    """A .npy file, one array of an .npz archive as (path, key), or one column of a 2-D .npy as (path, col).
+    """A .npy file, one array of an .npz archive as (path, key), one column of a 2-D .npy as (path, col),
+    or one column of a CSV as (path, column).
 
     Never unpickles.
     """
     if isinstance(src, tuple) and isinstance(src[1], int):
         return np.asarray(np.load(src[0], mmap_mode="r", allow_pickle=False)[:, src[1]])
+    if isinstance(src, tuple) and src[0].suffix == ".csv":
+        return pd.read_csv(src[0])[src[1]].to_numpy()
     if isinstance(src, tuple):
         with np.load(src[0], allow_pickle=False) as z:
             return z[src[1]]

@@ -11,7 +11,11 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | **0.95225** | |
+| stack: wide LM stack + 2 RealMLP (D21) | 9 | logistic (C=0.1) on 3 OOF | | | **0.95255** | |
+| stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
+| stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
+| stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
+| stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
 | stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
@@ -528,3 +532,49 @@ C=0.01).
 Own-model side (round ten, `jobs/r10a.txt` to `r10d.txt`): GPT-2 token keys and 3-digit chunks of each
 float column's integer part (`--keys tokens`; idea after aphoristicartist and busyaprime, written here
 independently) on the GLM and the three GLM-boost families.
+
+## D21. The nested wide stack, RealMLP v15, and an early-stopping check
+
+Read as text, 2026-11-17: asteriospanoras's *Top Public, Fully Explained*, kagankoral's *Final-Pick Check*,
+busyaprime's *124 Voices* and goodpjw2008's *Board Model + RealMLP*. All four agree the 0.954 files are
+public-board steering that nested CV does not support, and point to the same CV reference: goodpjw2008's
+nested wide LM stack.
+
+New members (`src/import_public.py`, folds stated as the shared split):
+
+- [goodpjw2008/s6e11-fraud-series-artifacts](https://www.kaggle.com/datasets/goodpjw2008/s6e11-fraud-series-artifacts)
+  (CC0): the nested OOF of the wide LM stack (about 200 public members, **0.95257**, better than our D20
+  stack on all five folds) and of the wide stack without LMs (0.95250). The single models in the dataset
+  duplicate the OOF bank and are not imported.
+- yekenot's RealMLP notebook outputs: PyTabKit v15 (0.95031; 3 epochs, no early stopping, every fold
+  improves to the last epoch, so the validation fold does not pick the model) and the earlier PyTorch run
+  (0.95002).
+
+Stacks (nested CV, best C per row):
+
+| Members | Best C | CV AUC | Folds |
+| --- | --- | --- | --- |
+| wide LM stack alone (no fit) | | **0.95257** | 0.95177 0.95253 0.95737 0.95270 0.94845 |
+| wide LM stack + 2 RealMLP | 0.1 | 0.95255 | 0.95178 0.95263 0.95744 0.95269 0.94836 |
+| own 21 + 2 wide stacks + 2 RealMLP | 0.01 | 0.95251 | 0.95185 0.95268 0.95728 0.95288 0.94813 |
+| own 21 + wide LM stack | 0.01 | 0.95249 | 0.95180 0.95260 0.95727 0.95294 0.94801 |
+| D20's 173 + 2 wide stacks + 2 RealMLP | 0.01 | 0.95233 | 0.95164 0.95251 0.95723 0.95260 0.94789 |
+| D20's 173 (D20) | 0.01 | 0.95225 | 0.95138 0.95242 0.95718 0.95265 0.94782 |
+| D20 without busyaprime's 27 boosters | 0.01 | 0.95219 | 0.95138 0.95232 0.95711 0.95251 0.94785 |
+
+Fit-free steps from the wide LM stack towards one direction, `W + w (X - W)` on logit ranks, w chosen on
+four folds and scored on the fifth: towards the mean of our 21 models -2.5e-5 (2 of 5 folds up), our best
+single model -0.6e-5 (3/5), our best GLM -1.1e-5 (2/5), RealMLP v15 +0.5e-5 (4/5), the wide stack without
+LMs -1.0e-5 (0/5).
+
+Reading:
+
+- Nothing beats the wide LM stack on its own. Refitting weights on top of it costs more than the
+  members add, as kagankoral measured for the bundle's 16 models; our own 21 models do not add to it
+  either, by stack or by step.
+- busyaprime's notebook says its boosters early-stop on the fold they are scored on. Without those 27
+  members D20 drops 0.00006, so `stack_pub4` (public 0.95219) carries at most that much optimism.
+- The public-member track is now limited by the wide stack, not by our members. Written:
+  `submissions/stack_pub5.csv` (own 21 + wide LM stack, C=0.01), the best file that still contains our
+  models.
+

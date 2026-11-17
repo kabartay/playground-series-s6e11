@@ -19,7 +19,7 @@ test transactions; the competition closes on 2026-11-30.
 > **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95114** (nested CV); best single model 0.95096
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on pooled artefacts, target encodings
 > of exact values and digit keys at three smoothing weights, and joint keys, with key counts). Best submissions:
-> own models CV 0.95114, public 0.95123; with public members CV 0.95204, public 0.95190.
+> own models CV 0.95114, public 0.95123; with public members CV 0.95225, public 0.95219.
 
 ## Contents
 
@@ -71,7 +71,8 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 
 | Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| Logistic stack: our 21 models + 152 public OOF members (D20) |  | **0.95225** |
+| Logistic stack: goodpjw2008's nested wide LM stack + our 21 models (D21) |  | **0.95249** |
+| Logistic stack: our 21 models + 152 public OOF members (D20) |  | 0.95225 |
 | Logistic stack: our 21 models + 52 public OOF members (D19) |  | 0.95204 |
 | Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
@@ -109,6 +110,7 @@ Leaderboard submissions:
 
 | Date | Submission | Validation | Public LB |
 | :--- | :--- | :--- | :--- |
+| 2026-11-17 | Logistic stack: our 21 models + 152 public OOF members (D20) | 0.95225 (5-fold CV) | 0.95219 |
 | 2026-11-17 | Logistic stack: our 21 models + 52 public OOF members (D19) | 0.95204 (5-fold CV) | 0.95190 |
 | 2026-11-17 | Logistic stack: our 21 models + 38 public OOF members | 0.95183 (5-fold CV) | 0.95164 |
 | 2026-11-17 | Logistic stack of 21 own models (round eight) | 0.95114 (5-fold CV) | 0.95123 |
@@ -263,7 +265,9 @@ code here is written independently. Joint keys and key counts follow measurement
 The public-member stacks use out-of-fold predictions published by
 [goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0; also its
 [compact LM](https://www.kaggle.com/datasets/goodpjw2008/s6e11-compact-lm-seed7) and
-[GPT-2 seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026)),
+[GPT-2 seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026) and the nested
+[wide LM stack](https://www.kaggle.com/datasets/goodpjw2008/s6e11-fraud-series-artifacts)),
+[yekenot's RealMLP](https://www.kaggle.com/code/yekenot/ps-s6-e11-realmlp-pytabkit) notebook outputs,
 [Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0; 16 public
 members collected from other notebooks, named after their authors in the bundle),
 [busyaprime](https://www.kaggle.com/datasets/busyaprime/s6e11-33-own-members) (CC0),

@@ -24,7 +24,8 @@
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
-| 2026-11-17 | `stack_pub3.csv` | 0.95190 | 0.95204 (nested 5-fold CV) | our 21 models + 52 public OOF members (D19); best public score, rank 596 of 2,098 |
+| 2026-11-17 | `stack_pub4.csv` | 0.95219 | 0.95225 (nested 5-fold CV) | our 21 models + 152 public OOF members (D20); best public score |
+| 2026-11-17 | `stack_pub3.csv` | 0.95190 | 0.95204 (nested 5-fold CV) | our 21 models + 52 public OOF members (D19); rank 596 of 2,098 |
 | 2026-11-17 | `stack_pub2.csv` | 0.95164 | 0.95183 (nested 5-fold CV) | our 21 round-eight models + 38 public OOF members (D17); rank 624 of 2,065 at the time |
 | 2026-11-17 | `stack_r8.csv` | 0.95123 | 0.95114 (nested 5-fold CV) | logistic stack of 21 own models, round eight (D17); best own-model public score |
 | 2026-11-17 | `stack_pub1.csv` | 0.95165 | 0.95175 (nested 5-fold CV) | our 9 models + 38 fold-checked public OOF members (D15); rank 606 of 2,026 |
