@@ -24,6 +24,8 @@
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-17 | `stack_pub2.csv` | 0.95164 | 0.95183 (nested 5-fold CV) | our 21 round-eight models + 38 public OOF members (D17); best entry still stack_pub1, rank 624 of 2,065 |
+| 2026-11-17 | `stack_r8.csv` | 0.95123 | 0.95114 (nested 5-fold CV) | logistic stack of 21 own models, round eight (D17); best own-model public score |
 | 2026-11-17 | `stack_pub1.csv` | 0.95165 | 0.95175 (nested 5-fold CV) | our 9 models + 38 fold-checked public OOF members (D15); rank 606 of 2,026 |
 | 2026-11-16 | `stack_r5.csv` | 0.95113 | 0.95079 (nested 5-fold CV) | logistic stack of 9: GLM boost (LightGBM, XGBoost, CatBoost), 4-leaf LightGBM, spline GLM, MLP (D13); rank 766 of 2,024 |
 | 2026-11-16 | `stack_r2.csv` | 0.94982 | 0.94952 (nested 5-fold CV) | logistic stack of 7 round-one and round-two models (D10) |
