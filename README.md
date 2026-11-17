@@ -262,8 +262,8 @@ The public-member stacks use out-of-fold predictions published by
 [goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0; also its
 [compact LM](https://www.kaggle.com/datasets/goodpjw2008/s6e11-compact-lm-seed7) and
 [GPT-2 seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026)),
-[Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0; members
-by megayak, slimypunk, sadam, yekenot, alexchilton, daoviet, Sameer Shaikh and goodpjw2008),
+[Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0; 16 public
+members collected from other notebooks, named after their authors in the bundle),
 [mathsonchain](https://www.kaggle.com/datasets/mathsonchain/s6e11-fraud-oof-test-17-single-models) (CC BY 4.0) and
 [Masaya Kawamata](https://www.kaggle.com/datasets/masayakawamata/s6e11-gpt2-target-first-oof) (CC BY 4.0; GPT-2
 target-first method by Chris Deotte, replica step after Borisov et al., GReaT, ICLR 2023). The FinTFM notebook takes its shape from
