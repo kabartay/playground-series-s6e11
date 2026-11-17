@@ -11,7 +11,8 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | **0.95204** | |
+| stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | **0.95225** | |
+| stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
 | r9_gb_all_kc_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all_kc | 0 | 0.95098 | 0.0032 |
@@ -494,3 +495,36 @@ the same members as D17 plus these 14 (nested CV, folds in order):
 weight (0.30, 0.25, and 0.11 for megayak's LM). Written to `submissions/stack_pub3.csv`. The same caveat as
 D15 applies, more strongly: many of these authors chose recipes and blends on these folds and on the public
 board, so part of the gain may be selection that the private rows will not repeat.
+
+## D20. Three more public sources
+
+All CC0, imported by `src/import_public.py` with every member's AUC equal to its source's manifest within
+0.0001:
+
+- [busyaprime/s6e11-33-own-members](https://www.kaggle.com/datasets/busyaprime/s6e11-33-own-members): 52
+  members (GLM-start boosters, shallow trees and GLMs on digit and GPT-2 token keys, EBMs, TabM, RealMLP),
+  0.94835-0.95109. No fold file; the description states the shared split, which by construction equals ours
+  ("folds stated").
+- dariushafshar's [9-model library](https://www.kaggle.com/datasets/dariushafshar/s6e11-golem-oof-library)
+  and [3 GPU members](https://www.kaggle.com/datasets/dariushafshar/s6e11-gpu-oof-members) (digit Transformer,
+  target-first digit LM, CatBoost), fold file equal to ours. Members a, h and i are left out: the manifest
+  says they early-stop on the validation fold, so their OOF is optimistic. 0.93117-0.94659.
+- [alexchilton/s6e11-oof-predictions](https://www.kaggle.com/datasets/alexchilton/s6e11-oof-predictions):
+  39 members, 0.89930-0.95066; the description now states the shared split.
+
+Stacks on D19's 73 members plus (nested CV; best C per row):
+
+| Added | Members | Best C | CV AUC | Folds |
+| --- | --- | --- | --- | --- |
+| busyaprime | 125 | 0.1 | 0.95215 | 0.95132 0.95239 0.95728 0.95259 0.94755 |
+| busyaprime + dariushafshar | 134 | 0.01 | 0.95211 | 0.95117 0.95243 0.95724 0.95259 0.94753 |
+| busyaprime + alexchilton | 164 | 0.003 | 0.95218 | 0.95127 0.95242 0.95706 0.95256 0.94784 |
+| all three | 173 | 0.01 | **0.95225** | 0.95138 0.95242 0.95718 0.95265 0.94782 |
+
+busyaprime adds +0.00011 (5 of 5 folds); after that the variants differ by less than the spread across C,
+so the public-member stack has levelled off near 0.9522. Written: `submissions/stack_pub4.csv` (all three,
+C=0.01).
+
+Own-model side (round ten, `jobs/r10a.txt` to `r10d.txt`): GPT-2 token keys and 3-digit chunks of each
+float column's integer part (`--keys tokens`; idea after aphoristicartist and busyaprime, written here
+independently) on the GLM and the three GLM-boost families.

@@ -71,7 +71,8 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 
 | Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| Logistic stack: our 21 models + 52 public OOF members (D19) |  | **0.95204** |
+| Logistic stack: our 21 models + 152 public OOF members (D20) |  | **0.95225** |
+| Logistic stack: our 21 models + 52 public OOF members (D19) |  | 0.95204 |
 | Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
 | Logistic stack of 21 own models (round eight) |  | 0.95114 |
@@ -265,6 +266,9 @@ The public-member stacks use out-of-fold predictions published by
 [GPT-2 seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026)),
 [Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0; 16 public
 members collected from other notebooks, named after their authors in the bundle),
+[busyaprime](https://www.kaggle.com/datasets/busyaprime/s6e11-33-own-members) (CC0),
+[dariushafshar](https://www.kaggle.com/datasets/dariushafshar/s6e11-golem-oof-library) (CC0),
+[alexchilton](https://www.kaggle.com/datasets/alexchilton/s6e11-oof-predictions) (CC0),
 [mathsonchain](https://www.kaggle.com/datasets/mathsonchain/s6e11-fraud-oof-test-17-single-models) (CC BY 4.0) and
 [Masaya Kawamata](https://www.kaggle.com/datasets/masayakawamata/s6e11-gpt2-target-first-oof) (CC BY 4.0; GPT-2
 target-first method by Chris Deotte, replica step after Borisov et al., GReaT, ICLR 2023). The FinTFM notebook takes its shape from
