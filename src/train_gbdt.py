@@ -1,4 +1,4 @@
-"""5-fold CV for LightGBM / XGBoost / CatBoost / GLM / MLP. Saves OOF and test predictions to runs/<name>/.
+"""5-fold CV for LightGBM / XGBoost / CatBoost / GLM / MLP / RealMLP; saves OOF and test to runs/<name>/.
 
 Usage: .venv/bin/python src/train_gbdt.py --model lgb --fe ogte --orig 1 --name lgb_ogte
 
@@ -103,6 +103,28 @@ def fit_mlp(params: dict, Xtr, ytr, Xs: list, seed: int = 0) -> tuple[list[np.nd
     return [m.predict_proba(sc.transform(design(X)))[:, 1] for X in Xs], int(m.n_iter_)
 
 
+def fit_realmlp(params: dict, Xtr, ytr, Xs: list, seed: int = 0) -> tuple[list[np.ndarray], int]:
+    """RealMLP (pytabkit's RealMLP_TD_Classifier) on the fold's feature frame; probabilities for each frame.
+
+    pytabkit picks its best epoch (and early-stops, if asked) on a validation set. That set is a stratified
+    10% holdout of the training rows, never the validation fold, so the OOF stays honest; the network trains
+    on the other 90%. `params` go to RealMLP_TD_Classifier unchanged (n_ens, n_epochs, batch_size, lr,
+    hidden_sizes, ...). Categoricals are the pandas category columns. Needs `pip install pytabkit`.
+    """
+    import torch
+    from pytabkit import RealMLP_TD_Classifier
+    from sklearn.model_selection import train_test_split
+
+    torch.set_num_threads(THREADS)
+    inn, hold = train_test_split(np.arange(len(ytr)), test_size=0.1, stratify=ytr, random_state=100 + seed)
+    Xtr = Xtr.reset_index(drop=True)
+    p = dict(device="cpu", n_threads=THREADS, random_state=seed, verbosity=0)
+    p.update(params)
+    m = RealMLP_TD_Classifier(**p)
+    m.fit(Xtr.iloc[inn], ytr[inn], Xtr.iloc[hold], ytr[hold])
+    return [m.predict_proba(X)[:, 1] for X in Xs], int(p.get("n_epochs", 0))
+
+
 def fit_predict(
     model: str,
     params: dict,
@@ -128,6 +150,9 @@ def fit_predict(
         return lv, lt, it
     if model == "mlp":
         (pv, pt), it = fit_mlp(params, Xtr, ytr, [Xva, Xte], seed=seed)
+        return pv, pt, it
+    if model == "realmlp":
+        (pv, pt), it = fit_realmlp(params, Xtr, ytr, [Xva, Xte], seed=seed)
         return pv, pt, it
     if model == "lgb":
         import lightgbm as lgb
@@ -338,7 +363,7 @@ def inner_rounds(model: str, params: dict, Xa, ya, wa, init, seed: int, fold: in
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True, choices=["lgb", "xgb", "cat", "glm", "mlp"])
+    ap.add_argument("--model", required=True, choices=["lgb", "xgb", "cat", "glm", "mlp", "realmlp"])
     ap.add_argument("--fe", default="raw", choices=list(FEATURE_SETS))
     ap.add_argument("--orig", type=float, default=1.0, help="weight of original rows; 0 drops them")
     ap.add_argument("--name", required=True)
@@ -469,6 +494,8 @@ def main() -> None:
             if a.orig > 0 or a.te == "none":
                 raise SystemExit("--offset glm needs --orig 0 and target encoding")
             init, _ = fit_glm(glm_params, Xa, ya, [Xa, Xva, Xte_k])
+        if a.model == "realmlp" and a.orig > 0:
+            raise SystemExit("--model realmlp needs --orig 0 (no sample weights)")
         if a.model not in ("glm", "mlp"):
             # tej_ columns (joint keys for the GLM only) feed the GLM offset but not the trees.
             drop = [c for c in Xa.columns if c.startswith("tej_")]
