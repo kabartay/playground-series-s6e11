@@ -11,7 +11,8 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | **0.95114** | |
+| stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | **0.95204** | |
+| stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
 | stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
 | r9_gb_all_kc_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all_kc | 0 | 0.95098 | 0.0032 |
 | r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
@@ -144,7 +145,7 @@ ROC-AUC unless stated; "public" means public leaderboard.
   [LM Ladder](https://www.kaggle.com/code/goodpjw2008/s6e11-lm-ladder-ladder-meets-stack-lb-0-95427) train
   nothing: they mix other people's submission files in logit-rank space and steer by the public board.
   The ladder notebook's own CV-backed file has OOF 0.95266 (public 0.95379); its public-tuned file is
-  about 0.0028 worse in OOF. "GLM" and "LM" mean linear models, not language models.
+  about 0.0028 worse in OOF. "GLM" is a linear model; "LM" is a target-first language model (corrected in D19).
 - **The honest single-model level is about 0.9503-0.9513**, from
   [GLM-Offset Trees](https://www.kaggle.com/code/georgymamarin/s6e11-fraud-glm-offset-trees-review-budgets)
   (Georgy Mamarin) and the
@@ -457,3 +458,39 @@ start, seed variance is already small. In the stacks it does not help:
 
 Dropped. The final candidates stay `stack_r8.csv` (own models, 0.95114) and `stack_pub2.csv` (with
 public members, 0.95183).
+
+## D19. More public members: the language models behind the 0.954 notebooks
+
+The best CV-backed public file we know of, `submission_cv.csv` of goodpjw2008's
+[LM Ladder](https://www.kaggle.com/code/goodpjw2008/s6e11-lm-ladder-ladder-meets-stack-lb-0-95432)
+(read as text, not run), reports OOF 0.95266. That figure is not a nested stack score: its base is Aman Atar's
+public 0.95370 file, a blend tuned on the public board, "replayed" on OOF rows with weights fitted on test rows,
+plus steps whose sizes were partly chosen on all five folds. Its members are public, and "LM" there is a
+target-first language model (GPT-2 small reading each row as text, label token first), not a linear model as
+D7 said. Three CC0 datasets carry them:
+
+- [amanatar/s6e11-rank1-q17-meta-bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle):
+  16 members' OOF and test predictions as clipped logit ranks, with labels and a fold array; both equal ours
+  row by row. 12 imported (`pub_q17_*`): megayak's compact LM, two TabPFN, RealMLP, three GLMs, a VAE, and
+  four GLM-boost and shallow-tree members. Skipped: the two members already imported, and two LMs whose bundle
+  test predictions come from the fold-0 model only.
+- goodpjw2008's [compact LM, seed 7](https://www.kaggle.com/datasets/goodpjw2008/s6e11-compact-lm-seed7)
+  (0.94945) and [GPT-2, seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026)
+  (0.95014), with test predictions averaged over the five fold models (`pub_gw_*`). Their per-fold AUCs equal
+  those of the bundle's copies, which carry the bundle's (our) folds.
+
+Single members range from 0.94649 to 0.95159; four score above our best single model (0.95096). Stacks on
+the same members as D17 plus these 14 (nested CV, folds in order):
+
+| Stacker | CV AUC | Folds |
+| --- | --- | --- |
+| rank average | 0.95130 | |
+| logistic C=0.01 | 0.95199 | 0.95101 0.95231 0.95708 0.95236 0.94749 |
+| logistic C=0.1 | **0.95204** | 0.95102 0.95235 0.95723 0.95232 0.94751 |
+| logistic C=1 | 0.95199 | 0.95120 0.95221 0.95711 0.95231 0.94734 |
+| hill climbing | 0.95202 | 0.95086 0.95244 0.95711 0.95249 0.94761 |
+
++0.00021 over D17's 0.95183, all five folds up. The three GPT-2-family members share the language-model
+weight (0.30, 0.25, and 0.11 for megayak's LM). Written to `submissions/stack_pub3.csv`. The same caveat as
+D15 applies, more strongly: many of these authors chose recipes and blends on these folds and on the public
+board, so part of the gain may be selection that the private rows will not repeat.

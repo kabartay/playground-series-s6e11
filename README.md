@@ -71,7 +71,8 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 
 | Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| Logistic stack: our 21 models + 38 public OOF members (D17) |  | **0.95183** |
+| Logistic stack: our 21 models + 52 public OOF members (D19) |  | **0.95204** |
+| Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
 | Logistic stack of 21 own models (round eight) |  | 0.95114 |
 | Logistic stack of 14 own models (round seven) |  | 0.95107 |
@@ -143,6 +144,7 @@ Leaderboard submissions:
 | All round-seven features in XGBoost and CatBoost GLM boost | +0.00045 and +0.00033, 5 of 5 | adopted |
 | MLP on the full round-seven design | -0.00049 | dropped |
 | 3-seed bags of the round-eight trees | single models +0.00000 to +0.00002; stacks -0.00001 to -0.00004 | dropped |
+| 14 more public members: target-first language models, TabPFN, GLMs (CC0) | stack +0.00021, 5 of 5 | second track (D19) |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
@@ -257,7 +259,11 @@ Thanks to Kaggle for the Playground Series and to the author of the original Cre
 code here is written independently. Joint keys and key counts follow measurements published in
 [megayak's notebook](https://www.kaggle.com/code/megayak/s6e11-per-value-digit-te-shallow-tree-stack) (Apache-2.0).
 The public-member stacks use out-of-fold predictions published by
-[goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0),
+[goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0; also its
+[compact LM](https://www.kaggle.com/datasets/goodpjw2008/s6e11-compact-lm-seed7) and
+[GPT-2 seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026)),
+[Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0; members
+by megayak, slimypunk, sadam, yekenot, alexchilton, daoviet, Sameer Shaikh and goodpjw2008),
 [mathsonchain](https://www.kaggle.com/datasets/mathsonchain/s6e11-fraud-oof-test-17-single-models) (CC BY 4.0) and
 [Masaya Kawamata](https://www.kaggle.com/datasets/masayakawamata/s6e11-gpt2-target-first-oof) (CC BY 4.0; GPT-2
 target-first method by Chris Deotte, replica step after Borisov et al., GReaT, ICLR 2023). The FinTFM notebook takes its shape from

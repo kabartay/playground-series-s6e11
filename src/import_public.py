@@ -24,6 +24,13 @@ from sklearn.metrics import roc_auc_score
 from common import DATA, RUNS, TARGET, folds, load
 
 PUB = DATA / "public"
+# Bundle streams imported elsewhere: masaya_gpt2 (tag mk), gbn_bag5_w512 (tag gp), and the two LMs whose
+# bundle test predictions come from the fold-0 model only (taken from goodpjw2008's datasets with 5-fold
+# test files instead).
+BUNDLE_SKIP = {"masaya_gpt2", "gbn_bag5_w512", "lm7_5fold", "gpt2_seed2026"}
+# OOF AUC stated in each LM dataset's README. Their folds are stated equal to ours and confirmed by the q17
+# bundle, whose fold array equals ours and whose copies of these two members have the same per-fold AUCs.
+LM_AUC = {"lm7": 0.949448, "gpt2_s2026": 0.950140}
 
 
 def our_fold_ids(y: np.ndarray) -> np.ndarray:
@@ -83,6 +90,49 @@ def members() -> list[dict]:
                 note="GPT-2 target-first classifier, log-odds; CC BY 4.0, attribute Masaya Kawamata",
             )
         )
+    d = PUB / "amanatar__s6e11-rank1-q17-meta-bundle"
+    if d.exists():
+        z = d / "rank1_q17_streams.npz"
+        with np.load(z, allow_pickle=False) as npz:
+            names = [str(n) for n in npz["stream_names"]]
+        for n in names:
+            if n in BUNDLE_SKIP:
+                continue
+            out.append(
+                dict(
+                    tag="q17",
+                    name=n,
+                    oof=(z, f"oof_{n}"),
+                    test=(z, f"test_{n}"),
+                    auc=None,
+                    folds=(z, "folds"),
+                    source="amanatar/s6e11-rank1-q17-meta-bundle",
+                    note="logit ranks; CC0",
+                )
+            )
+    for ds, name, oof, test in (
+        ("s6e11-compact-lm-seed7", "lm7", "lm7_oof_5fold.npy", "lm7_test_5fold.npy"),
+        (
+            "s6e11-target-first-gpt2-seed-2026",
+            "gpt2_s2026",
+            "gpt2_s2026_oof_5fold.npy",
+            "gpt2_s2026_test_5fold.npy",
+        ),
+    ):
+        d = PUB / f"goodpjw2008__{ds}"
+        if d.exists():
+            out.append(
+                dict(
+                    tag="gw",
+                    name=name,
+                    oof=d / oof,
+                    test=d / test,
+                    auc=LM_AUC[name],
+                    folds=None,
+                    source=f"goodpjw2008/{ds}",
+                    note="target-first LM log-odds, test = mean of the 5 fold models; CC0",
+                )
+            )
     d = PUB / "alexchilton__s6e11-oof-predictions"
     if d.exists():
         man = json.loads((d / "oof_manifest.json").read_text())
@@ -103,9 +153,18 @@ def members() -> list[dict]:
     return out
 
 
-def load_folds(p: Path) -> np.ndarray:
+def load_array(src: Path | tuple[Path, str]) -> np.ndarray:
+    """A .npy file, or one array of an .npz archive given as (path, key); never unpickles."""
+    if isinstance(src, tuple):
+        with np.load(src[0], allow_pickle=False) as z:
+            return z[src[1]]
+    return np.load(src, allow_pickle=False)
+
+
+def load_folds(p: Path | tuple[Path, str]) -> np.ndarray:
     """A source's fold ids in train.csv order."""
-    if p.suffix == ".npy":
+    if isinstance(p, tuple) or p.suffix == ".npy":
+        return load_array(p).astype(np.int8)
         return np.load(p, allow_pickle=False).astype(np.int8)
     return pd.read_csv(p)["fold"].to_numpy().astype(np.int8)
 
@@ -123,9 +182,9 @@ def main() -> None:
     for m in members():
         label = f"{m['tag']}:{m['name']}"
         try:
-            oof = np.load(m["oof"], allow_pickle=False).astype("float64").ravel()
-            test = np.load(m["test"], allow_pickle=False).astype("float64").ravel()
-        except (OSError, ValueError) as e:
+            oof = load_array(m["oof"]).astype("float64").ravel()
+            test = load_array(m["test"]).astype("float64").ravel()
+        except (OSError, ValueError, KeyError) as e:
             print(f"  skip {label}: {e}")
             continue
         if oof.shape != (len(tr),) or test.shape != (len(te),):
