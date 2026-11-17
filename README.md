@@ -16,7 +16,7 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-16):** best own-model stack 5-fold CV ROC-AUC **0.95107** (nested CV); best single model 0.95078
+> **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95107** (nested CV); best single model 0.95078
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values,
 > digit keys and joint keys, with key counts). Last submission: CV 0.95079, public 0.95113. Round eight, which combines round
 > seven's encodings, is running.
