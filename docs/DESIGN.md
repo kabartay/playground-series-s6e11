@@ -11,7 +11,12 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | **0.95107** | |
+| stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | **0.95114** | |
+| stack of round seven (own models) | 7 | logistic (C=1) on 14 OOF | | | 0.95107 | |
+| r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
+| r8_gbx_all_kc | 8 | GLM boost (XGBoost depth 2) | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
+| r8_gbc_all_kc | 8 | GLM boost (CatBoost depth 4) | as r8_gb_all_kc | 0 | 0.95090 | 0.0032 |
+| r8_gb_all | 8 | GLM boost (LightGBM) | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95087 | 0.0033 |
 | stack of round five | 5 | logistic (C=0.1) on 9 OOF | | | 0.95079 | |
 | r7_gb_joint_kc | 7 | GLM boost; GLM has joint keys, trees see key counts | raw + TE | 0 | 0.95078 | 0.0032 |
 | r7_gb_art_m3 | 7 | GLM boost | artefacts + TE at m 5/20/100 | 0 | 0.95076 | 0.0033 |
@@ -28,8 +33,11 @@ rows added to each training fold (0 = not used).
 | r4_gbc_d4 | 4 | CatBoost depth 4 started from the GLM's logit | as r3_glmboost | 0 | 0.95057 | 0.0034 |
 | r3_glmboost | 3 | 4-leaf LightGBM started from the in-fold GLM's logit | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95056 | 0.0034 |
 | r4_gb_lr015 | 4 | GLM boost, lr 0.015, feature fraction 0.3 | as r3_glmboost | 0 | 0.95055 | 0.0034 |
+| r8_glm_all | 8 | spline GLM | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95062 | 0.0031 |
+| r8_glm_all_kc | 8 | spline GLM | as r8_glm_all + key counts | 0 | 0.95062 | 0.0032 |
 | r7_glm_art_m3 | 7 | spline GLM | artefacts + TE at m 5/20/100 | 0 | 0.95053 | 0.0032 |
 | r4_gb_l8 | 4 | GLM boost, 8 leaves | as r3_glmboost | 0 | 0.95050 | 0.0034 |
+| r8_lgb_l4_all_kc | 8 | LightGBM, 4 leaves | as r8_gb_all_kc | 0 | 0.95050 | 0.0034 |
 | r4_gbx_d2 | 4 | XGBoost depth 2 started from the GLM's logit | as r3_glmboost | 0 | 0.95049 | 0.0034 |
 | r6_gbc_d6 | 6 | CatBoost depth 6 started from the GLM's logit | as r3_glmboost | 0 | 0.95048 | 0.0034 |
 | r7_glm_joint_kc | 7 | spline GLM | joint keys + key counts | 0 | 0.95043 | 0.0032 |
@@ -61,6 +69,7 @@ rows added to each training fold (0 = not used).
 | xgb_raw_o1 | 1 | XGBoost, depth 6 | raw | 1 | 0.94681 | 0.0033 |
 | lgb_raw_o1 | 1 | LightGBM, 31 leaves | raw | 1 | 0.94680 | 0.0032 |
 | xgb_ogte_o1 | 1 | XGBoost, depth 6 | raw + original per-value rates | 1 | 0.94676 | 0.0036 |
+| r8_mlp_all | 8 | MLP, 3 seeds | as r8_glm_all | 0 | 0.94666 | 0.0036 |
 | lgb_combo_o1 | 1 | LightGBM, 31 leaves | + ratios, flag count | 1 | 0.94659 | 0.0034 |
 | cat_ogte_o1 | 1 | CatBoost, depth 6 | raw + original per-value rates | 1 | 0.94654 | 0.0035 |
 | lgb_count_o1 | 1 | LightGBM, 31 leaves | + value frequencies | 1 | 0.94647 | 0.0036 |
@@ -391,3 +400,33 @@ Adding five round-seven runs to the round-five stack: nested CV **0.95107** (log
 Round eight (`jobs/r8a.txt` to `r8d.txt`) puts all of it together: artefacts, m 5/20/100, joint keys in
 the GLM, with and without key counts, for the GLM, LightGBM, XGBoost and CatBoost GLM boost, plain 4-leaf
 trees and the MLP.
+
+## D17. Round eight: everything combined, every family
+
+Shared inputs: pooled artefacts, TE at m 5, 20 and 100 on the full digit keys, joint keys in the GLM, with and
+without key counts (`jobs/r8a.txt` to `r8d.txt`). Each run against the member it would replace:
+
+| Run | CV AUC | Against | Folds up | Verdict |
+| --- | --- | --- | --- | --- |
+| r8_gb_all_kc | **0.95096** | r7_gb_joint_kc 0.95078 | 5 | adopted; best single model |
+| r8_gbx_all_kc | 0.95094 | r4_gbx_d2 0.95049 | 5 | adopted |
+| r8_gbc_all_kc | 0.95090 | r4_gbc_d4 0.95057 | 5 | adopted |
+| r8_gb_all | 0.95087 | r7_gb_joint_kc 0.95078 | 5 | stack member |
+| r8_glm_all | 0.95062 | r7_glm_art_m3 0.95053 | 4 | adopted |
+| r8_glm_all_kc | 0.95062 | r7_glm_art_m3 0.95053 | 4 | stack member (3 of 5 against r8_glm_all) |
+| r8_lgb_l4_all_kc | 0.95050 | r5_lgb_l4_s3 0.95033 | 4 | adopted |
+| r8_mlp_all | 0.94666 | r5_mlp 0.94715 | | dropped |
+
+The round-seven gains carry over to XGBoost and CatBoost GLM boost (+0.00045 and +0.00033), which had not
+had them before; key counts add +0.00009 to LightGBM GLM boost (4 of 5 folds) and nothing to the GLM.
+The MLP loses 0.00049 on the larger design.
+
+Stacks (nested CV, folds in order):
+
+| Stack | Members | CV AUC | Folds | Against |
+| --- | --- | --- | --- | --- |
+| own models | 21 (round-seven 14 + the seven adopted or member runs above) | **0.95114** (C=1) | 0.95022 0.95183 0.95609 0.95201 0.94594 | 0.95107, 5 of 5 up |
+| own + r8_mlp_all | 22 | 0.95114 | | no gain |
+| ours + public | 21 + 38 public | **0.95183** (C=0.01) | 0.95091 0.95229 0.95689 0.95231 0.94704 | stack_pub1 0.95175, 4 of 5 up |
+
+Next (step 4): seed-bag the round-eight members that carry the stack weight and rebuild both stacks.

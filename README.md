@@ -16,10 +16,10 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95107** (nested CV); best single model 0.95078
-> (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on target encodings of exact values,
-> digit keys and joint keys, with key counts). Last submission: CV 0.95079, public 0.95113. Round eight, which combines round
-> seven's encodings, is running.
+> **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95114** (nested CV); best single model 0.95096
+> (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on pooled artefacts, target encodings
+> of exact values and digit keys at three smoothing weights, and joint keys, with key counts). Last submission:
+> stack with public members, CV 0.95175, public 0.95165.
 
 ## Contents
 
@@ -71,8 +71,13 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 
 | Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| Logistic stack: our 9 models + 38 public OOF members (D15) |  | **0.95175** |
+| Logistic stack: our 21 models + 38 public OOF members (D17) |  | **0.95183** |
+| Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
+| Logistic stack of 21 own models (round eight) |  | 0.95114 |
 | Logistic stack of 14 own models (round seven) |  | 0.95107 |
+| GLM boost: 4-leaf LightGBM from the GLM's logit | + artefacts, TE at m 5/20/100, joint keys, key counts | 0.95096 |
+| GLM boost: XGBoost depth 2 from the GLM's logit | same | 0.95094 |
+| GLM boost: CatBoost depth 4 from the GLM's logit | same | 0.95090 |
 | Logistic stack of 9 own models (round five) |  | 0.95079 |
 | GLM boost: 4-leaf LightGBM from the GLM's logit | + joint keys, key counts | 0.95078 |
 | GLM boost | + pooled artefacts, TE at m 5/20/100 | 0.95076 |
@@ -96,7 +101,7 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | LightGBM, 31 leaves | + decimal digits | 0.94712 |
 | LightGBM, 31 leaves | raw columns | 0.94690 |
 
-Best first. Round eight (everything combined, every model family) is running.
+Best first.
 
 Leaderboard submissions:
 
@@ -133,6 +138,8 @@ Leaderboard submissions:
 | Pooled artefacts (counts, values absent from the original, copied pairs) + TE at m 5/20/100 | GLM +0.00038, GLM boost +0.00020, 5 of 5 | adopted |
 | Joint keys of non-additive column pairs, counts of every key | GLM +0.00028, GLM boost +0.00022 | adopted |
 | 45 pair keys in the GLM | +0.00009 | dropped |
+| All round-seven features in XGBoost and CatBoost GLM boost | +0.00045 and +0.00033, 5 of 5 | adopted |
+| MLP on the full round-seven design | -0.00049 | dropped |
 | First and second decimal digits as plain features | +0.0002 | small |
 | 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
 | Original dataset appended to training folds | -0.0001 | dropped |
