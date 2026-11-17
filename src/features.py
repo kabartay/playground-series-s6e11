@@ -148,6 +148,31 @@ JOINT = [
 "S6E11 | Per-Value + Digit TE | Shallow-Tree Stack" (Apache-2.0); "q:" means deciles of a float column."""
 
 
+def token_frame(df: pd.DataFrame) -> dict[str, np.ndarray]:
+    """Text keys of each float column's integer part: its first two GPT-2 tokens and its 3-digit chunks.
+
+    The integer part is written as GPT-2 would see a number in running text (" 1371" for 1371.37), so
+    the tokeniser's own digit grouping (" 13", "71") becomes a pair of keys; the 3-digit chunks ("137",
+    "1") group the same digits a fixed way. Idea after aphoristicartist and busyaprime's public notebooks;
+    written here independently. Tokens are computed once per distinct integer (tiktoken, MIT).
+    """
+    import tiktoken
+
+    enc = tiktoken.get_encoding("gpt2")
+    out: dict[str, np.ndarray] = {}
+    for c in DIGIT_COLS:
+        ints = pd.Series(np.floor(df[c].to_numpy()).astype("int64")).astype(str)
+        uniq = pd.unique(ints)
+        toks = {u: [enc.decode([t]) for t in enc.encode(" " + u)] for u in uniq}
+        first = {u: t[0] for u, t in toks.items()}
+        second = {u: (t[1] if len(t) > 1 else "") for u, t in toks.items()}
+        out[f"k_{c}_g2a"] = ints.map(first).to_numpy()
+        out[f"k_{c}_g2b"] = ints.map(second).to_numpy()
+        out[f"k_{c}_c3a"] = ints.str[:3].to_numpy()
+        out[f"k_{c}_c3b"] = ints.str[3:].to_numpy()
+    return out
+
+
 def te_keys(
     tr: pd.DataFrame,
     te: pd.DataFrame,
@@ -155,13 +180,15 @@ def te_keys(
     pairs: bool,
     digit_keys: bool = False,
     joint: bool = False,
+    token_keys: bool = False,
 ) -> list[pd.DataFrame]:
     """Integer category keys for in-fold target encoding (train, test, original), built on the union of rows.
 
     Every column's exact value is a key (when it has at most half as many levels as rows); continuous
     columns are also keyed on rounded values; decimal endings are keys; with `pairs`, every pair among
-    TE_TOP is a key; with `joint`, every pair in JOINT is a key named j_<name>. The encoding itself happens
-    inside each fold in train_gbdt.py.
+    TE_TOP is a key; with `joint`, every pair in JOINT is a key named j_<name>; with `token_keys`, the first
+    two GPT-2 tokens and the 3-digit chunks of each float column's integer part are keys (`token_frame`).
+    The encoding itself happens inside each fold in train_gbdt.py.
     """
     import numpy as np
 
@@ -191,6 +218,9 @@ def te_keys(
             keys[f"k_{c}_lead1"] = pd.factorize(sig.str[:1])[0]
             keys[f"k_{c}_lead2"] = pd.factorize(sig.str[:2])[0]
             keys[f"k_{c}_len"] = text.str.len().to_numpy()
+    if token_keys:
+        for name, col in token_frame(both).items():
+            keys[name] = pd.factorize(col)[0]
     if pairs:
         from itertools import combinations
 

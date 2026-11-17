@@ -241,7 +241,10 @@ def main() -> None:
     )
     ap.add_argument("--te-smooth", default="auto", help='"auto", m-estimate weight, or list 5,20,100')
     ap.add_argument(
-        "--keys", default="basic", choices=["basic", "full"], help="full adds the digit-key family"
+        "--keys",
+        default="basic",
+        choices=["basic", "full", "tokens"],
+        help="full adds the digit-key family; tokens adds GPT-2 tokens and 3-digit chunks on top",
     )
     ap.add_argument(
         "--offset",
@@ -279,7 +282,13 @@ def main() -> None:
         from sklearn.preprocessing import TargetEncoder
 
         Ktr, Kte, Kog = te_keys(
-            tr, te, og, pairs=a.te == "pairs", digit_keys=a.keys == "full", joint=a.joint != "none"
+            tr,
+            te,
+            og,
+            pairs=a.te == "pairs",
+            digit_keys=a.keys in ("full", "tokens"),
+            joint=a.joint != "none",
+            token_keys=a.keys == "tokens",
         )
         if a.key_counts:
             # Unsupervised: how many train + test rows share each key's value (no labels involved).

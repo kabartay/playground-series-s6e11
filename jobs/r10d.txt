@@ -1,0 +1,3 @@
+# Round ten: token keys, CatBoost GLM boost
+pip install tiktoken==0.14.0
+--model cat --fe art --te single --keys tokens --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --offset glm --name r10_gbc_tok --params {"depth":4,"learning_rate":0.05,"iterations":20000}

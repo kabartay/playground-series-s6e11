@@ -9,7 +9,8 @@ Usage (from the repo root):
   .venv/bin/python scripts/kaggle_kernel.py fetch  --kernel lgb1
 
 A jobs file has one argument string per line for train_gbdt.py, or a line starting with another script
-name (e.g. `train_fintfm.py --strategy balanced ...`); blank lines and # comments are ignored.
+name (e.g. `train_fintfm.py --strategy balanced ...`), or `pip install PKG` (needs --internet); blank lines
+and # comments are ignored.
 """
 
 from __future__ import annotations
@@ -41,6 +42,10 @@ for j, args in enumerate(JOBS):
     t0 = time.time()
     print(f"=== job {{j + 1}}/{{len(JOBS)}}: {{args}}", flush=True)
     argv = args.split()
+    if argv[0] == "pip":
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "-q", *argv[2:]])
+        print(f"=== exit {{r.returncode}} after {{time.time() - t0:.0f}}s", flush=True)
+        continue
     script = argv.pop(0) if argv[0].endswith(".py") else "train_gbdt.py"
     r = subprocess.run([sys.executable, script, *argv], cwd=d, env=env)
     print(f"=== exit {{r.returncode}} after {{time.time() - t0:.0f}}s", flush=True)

@@ -1,0 +1,4 @@
+# Round ten: GPT-2 token keys and 3-digit chunks (--keys tokens) on the GLM and LightGBM GLM boost
+pip install tiktoken==0.14.0
+--model glm --fe art --te single --keys tokens --te-smooth 5,20,100 --orig 0 --joint glm --name r10_glm_tok --params {"splines":8}
+--model lgb --fe art --te single --keys tokens --te-smooth 5,20,100 --orig 0 --joint glm --key-counts --offset glm --name r10_gb_tok --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}

@@ -6,6 +6,7 @@ stacked with our own runs by stack.py. Checks before import:
 
   * 699,960 OOF and 299,984 test values, all finite (files loaded with allow_pickle=False);
   * the source's fold file equals our folds (`common.folds`) row by row, when the source ships one;
+    sources without one must state the same split (StratifiedKFold(5, shuffle=True, random_state=42));
   * the OOF AUC we compute matches the AUC the source reports, within 0.0001.
 
 A member that fails any check is skipped with the reason printed. Usage: .venv/bin/python src/import_public.py
@@ -31,6 +32,12 @@ BUNDLE_SKIP = {"masaya_gpt2", "gbn_bag5_w512", "lm7_5fold", "gpt2_seed2026"}
 # OOF AUC stated in each LM dataset's README. Their folds are stated equal to ours and confirmed by the q17
 # bundle, whose fold array equals ours and whose copies of these two members have the same per-fold AUCs.
 LM_AUC = {"lm7": 0.949448, "gpt2_s2026": 0.950140}
+# Sources with no fold file whose description states StratifiedKFold(5, shuffle=True, random_state=42) on
+# is_fraud in train.csv order: by construction the same split as `common.folds`.
+STATED = "stated"
+# dariushafshar's library members that early-stop on the validation fold itself (disclosed in its manifest):
+# their OOF is optimistic, which would leak into a stacker.
+DH_SKIP = {"a", "h", "i"}
 
 
 def our_fold_ids(y: np.ndarray) -> np.ndarray:
@@ -133,6 +140,39 @@ def members() -> list[dict]:
                     note="target-first LM log-odds, test = mean of the 5 fold models; CC0",
                 )
             )
+    d = PUB / "busyaprime__s6e11-33-own-members"
+    if d.exists():
+        for col, r in enumerate(csv.DictReader(open(d / "manifest.csv"))):
+            out.append(
+                dict(
+                    tag="bp",
+                    name=r["name"],
+                    oof=(d / "oof.npy", col),
+                    test=(d / "test.npy", col),
+                    auc=float(r["oof_auc"]),
+                    folds=STATED,
+                    source="busyaprime/s6e11-33-own-members",
+                    note=f"{r['family']}; CC0",
+                )
+            )
+    lib = PUB / "dariushafshar__s6e11-golem-oof-library"
+    for d, tag in ((lib, "dh"), (PUB / "dariushafshar__s6e11-gpu-oof-members", "dg")):
+        if d.exists() and lib.exists():
+            for r in csv.DictReader(open(d / "manifest.csv")):
+                if r["member"] in DH_SKIP:
+                    continue
+                out.append(
+                    dict(
+                        tag=tag,
+                        name=r["member"],
+                        oof=d / f"oof_{r['member']}.npy",
+                        test=d / f"test_{r['member']}.npy",
+                        auc=float(r["oof_auc"]),
+                        folds=lib / "folds_seed42.npy",
+                        source=f"dariushafshar/{d.name.split('__')[1]}",
+                        note=f"{r.get('model_family') or r.get('model')}; CC0",
+                    )
+                )
     d = PUB / "alexchilton__s6e11-oof-predictions"
     if d.exists():
         man = json.loads((d / "oof_manifest.json").read_text())
@@ -145,7 +185,7 @@ def members() -> list[dict]:
                         oof=d / f"oof_{h}.npy",
                         test=d / f"test_{h}.npy",
                         auc=m.get("oof_auc"),
-                        folds=None,
+                        folds=STATED,
                         source="alexchilton/s6e11-oof-predictions",
                         note=f"{m.get('version', '')} {h}",
                     )
@@ -153,8 +193,13 @@ def members() -> list[dict]:
     return out
 
 
-def load_array(src: Path | tuple[Path, str]) -> np.ndarray:
-    """A .npy file, or one array of an .npz archive given as (path, key); never unpickles."""
+def load_array(src: Path | tuple[Path, str] | tuple[Path, int]) -> np.ndarray:
+    """A .npy file, one array of an .npz archive as (path, key), or one column of a 2-D .npy as (path, col).
+
+    Never unpickles.
+    """
+    if isinstance(src, tuple) and isinstance(src[1], int):
+        return np.asarray(np.load(src[0], mmap_mode="r", allow_pickle=False)[:, src[1]])
     if isinstance(src, tuple):
         with np.load(src[0], allow_pickle=False) as z:
             return z[src[1]]
@@ -193,7 +238,7 @@ def main() -> None:
         if not (np.isfinite(oof).all() and np.isfinite(test).all()):
             print(f"  skip {label}: non-finite values")
             continue
-        if m["folds"] is not None and not np.array_equal(load_folds(m["folds"]), ours):
+        if m["folds"] not in (None, STATED) and not np.array_equal(load_folds(m["folds"]), ours):
             print(f"  skip {label}: folds differ from ours")
             continue
         auc = roc_auc_score(y, oof)
@@ -210,11 +255,11 @@ def main() -> None:
             member=m["name"],
             note=m["note"],
             cv=auc,
-            folds_checked=m["folds"] is not None,
+            folds="stated" if m["folds"] == STATED else ("checked" if m["folds"] is not None else "unknown"),
         )
         (d / "meta.json").write_text(json.dumps(meta, indent=2))
         ok += 1
-        print(f"  {run:44s} {auc:.5f}  folds {'checked' if m['folds'] is not None else 'unknown'}")
+        print(f"  {run:44s} {auc:.5f}  folds {meta['folds']}")
     print(f"imported {ok} members")
 
 
