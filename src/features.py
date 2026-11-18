@@ -280,6 +280,31 @@ def fe_art(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Data
     return out
 
 
+def fe_emb(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+    """Raw columns plus categorical copies of every numeric column, for networks that embed categories.
+
+
+    `emb_<col>`: the integer part of each numeric column as a category (levels pooled over train + test +
+    original); for each DIGIT_COLS column also `emb_dec_<col>`, its two decimals as a category, and
+    `dec_<col>`, the decimals as a number. Unsupervised. Idea from yekenot's public RealMLP notebook (read as
+    text): the network learns an embedding per value bucket instead of seeing target encodings.
+    """
+    out = fe_raw(tr, te, og)
+    srcs = (tr, te, og)
+    for c in NUM:
+        keys = [np.floor(s[c].to_numpy()).astype("int64") for s in srcs]
+        levels = np.unique(np.concatenate(keys))
+        for k, dst in zip(keys, out, strict=True):
+            dst[f"emb_{c}"] = pd.Categorical(k, categories=levels)
+    for c in DIGIT_COLS:
+        keys = [np.rint((s[c].to_numpy() % 1) * 100).astype("int64") for s in srcs]
+        levels = np.unique(np.concatenate(keys))
+        for k, dst in zip(keys, out, strict=True):
+            dst[f"emb_dec_{c}"] = pd.Categorical(k, categories=levels)
+            dst[f"dec_{c}"] = (k / 100).astype("float32")
+    return out
+
+
 FEATURE_SETS = {
     "raw": fe_raw,
     "art": fe_art,
@@ -288,5 +313,6 @@ FEATURE_SETS = {
     "count": fe_count,
     "ogmodel": fe_ogmodel,
     "digits": fe_digits,
+    "emb": fe_emb,
 }
 CATS = CAT_STR
