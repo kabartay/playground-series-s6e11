@@ -1,0 +1,4 @@
+# Round thirteen: TabM (pytabkit TabM_D_Classifier) on --fe emb; early stopping on a 10% holdout of the training fold.
+pip install pytabkit
+--model realmlp --fe emb --te none --orig 0 --rows 20000 --folds 1 --name r13_smoke --params {"cls":"TabM_D_Classifier","batch_size":1024,"n_epochs":12,"patience":3}
+--model realmlp --fe emb --te none --orig 0 --name r13_tabm_emb --params {"cls":"TabM_D_Classifier","batch_size":1024,"n_epochs":12,"patience":3}

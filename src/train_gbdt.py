@@ -110,17 +110,20 @@ def fit_realmlp(params: dict, Xtr, ytr, Xs: list, seed: int = 0) -> tuple[list[n
     10% holdout of the training rows, never the validation fold, so the OOF stays honest; the network trains
     on the other 90%. `params` go to RealMLP_TD_Classifier unchanged (n_ens, n_epochs, batch_size, lr,
     hidden_sizes, ...). Categoricals are the pandas category columns. Needs `pip install pytabkit`.
+    `params["cls"]` picks another pytabkit classifier with the same interface (e.g. TabM_D_Classifier).
     """
+    import pytabkit
     import torch
-    from pytabkit import RealMLP_TD_Classifier
     from sklearn.model_selection import train_test_split
 
     torch.set_num_threads(THREADS)
     inn, hold = train_test_split(np.arange(len(ytr)), test_size=0.1, stratify=ytr, random_state=100 + seed)
     Xtr = Xtr.reset_index(drop=True)
+    params = dict(params)
+    cls = getattr(pytabkit, params.pop("cls", "RealMLP_TD_Classifier"))
     p = dict(device="cpu", n_threads=THREADS, random_state=seed, verbosity=0)
     p.update(params)
-    m = RealMLP_TD_Classifier(**p)
+    m = cls(**p)
     m.fit(Xtr.iloc[inn], ytr[inn], Xtr.iloc[hold], ytr[hold])
     return [m.predict_proba(X)[:, 1] for X in Xs], int(p.get("n_epochs", 0))
 
