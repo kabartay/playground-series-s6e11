@@ -16,7 +16,7 @@ authentication method, device, VPN use and other flags), predict the probability
 About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
 test transactions; the competition closes on 2026-11-30.
 
-> **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95132** (nested CV); best single model 0.95096
+> **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95138** (nested CV); best single model 0.95096
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on pooled artefacts, target encodings
 > of exact values and digit keys at three smoothing weights, and joint keys, with key counts). Best submissions:
 > own models CV 0.95132, public 0.95134; with public members CV 0.95249, public 0.95284.
@@ -76,6 +76,7 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | Logistic stack: our 21 models + 52 public OOF members (D19) |  | 0.95204 |
 | Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
+| Logistic stack of 24 own models (round twelve: + two RealMLPs on embedded value buckets) |  | 0.95138 |
 | Logistic stack of 22 own models (round eleven: boosters early-stopped inside the training fold) |  | 0.95133 |
 | Logistic stack of 22 own models (round ten: + GLM with GPT-2 token keys) |  | 0.95132 |
 | Logistic stack of 21 own models (round eight) |  | 0.95114 |
