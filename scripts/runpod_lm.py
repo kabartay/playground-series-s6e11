@@ -103,9 +103,13 @@ def ssh_args(direct: dict) -> list[str]:
 
 def remote(direct: dict, script: str, timeout: int = 60) -> subprocess.CompletedProcess:
     """Run `script` in the pod over SSH and capture its output; returncode 255 means SSH failed."""
-    return subprocess.run(
-        [*ssh_args(direct), script], capture_output=True, text=True, timeout=timeout, check=False
-    )
+    cmd = [*ssh_args(direct), script]
+    try:
+        return subprocess.run(
+            cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(cmd, 255, "", "timeout")
 
 
 def upload(direct: dict) -> None:
@@ -176,6 +180,7 @@ def run(api: RunPod, args: argparse.Namespace, lm_args: list[str]) -> int:
     direct: dict | None = None
     stage = "boot"  # boot -> train -> done
     running_since: float | None = None
+    last_ok: float | None = None  # last successful SSH probe
     last = ""
     try:
         while time.monotonic() - started < args.max_hours * 3600:
@@ -199,12 +204,13 @@ def run(api: RunPod, args: argparse.Namespace, lm_args: list[str]) -> int:
                 else None
             )
             if probe is None or probe.returncode == 255:
-                waited = (time.monotonic() - running_since) / 60
+                waited = (time.monotonic() - (last_ok or running_since)) / 60
                 log(f"SSH not ready after {waited:.0f} min of RUNNING")
                 if waited > args.connect_minutes:
                     log(f"no SSH within --connect-minutes {args.connect_minutes}; giving up")
                     break
                 continue
+            last_ok = time.monotonic()
             head, _, tail = probe.stdout.partition("---")
             if stage == "boot":
                 if "READY" not in head.split():
@@ -215,10 +221,15 @@ def run(api: RunPod, args: argparse.Namespace, lm_args: list[str]) -> int:
                     continue
                 upload(direct)
                 lm = " ".join(shlex.quote(x) for x in ["--name", args.name, "--folds", args.folds, *lm_args])
+                # Refuse to train on CPU: a torch wheel that cannot see the GPU would burn the budget.
+                job = (
+                    "python -c \"import torch; assert torch.cuda.is_available()\" && "
+                    f"S6E11_RUNS=/work/runs python train_lm.py {lm}"
+                )
                 remote(
                     direct,
-                    "cd /work/repo/src && nohup sh -c 'S6E11_RUNS=/work/runs python train_lm.py "
-                    f"{lm} > /work/pod.log 2>&1; echo $? > /work/EXIT' > /dev/null 2>&1 &",
+                    "cd /work/repo/src && setsid nohup sh -c "
+                    f"'({job}) > /work/pod.log 2>&1; echo $? > /work/EXIT' < /dev/null > /dev/null 2>&1 &",
                 )
                 log(f"uploaded and started train_lm.py {lm}")
                 stage = "train"
