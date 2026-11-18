@@ -108,6 +108,7 @@ rows added to each training fold (0 = not used).
 | cat_raw_o1 | 1 | CatBoost, depth 6 | raw | 1 | 0.94610 | 0.0031 |
 | r5_mlp_a1e2 | 5 | MLP 32, alpha 0.01, 3 seeds | as r5_mlp | 0 | 0.94578 | 0.0037 |
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
+| r13_tabm_emb | 13 | TabM (pytabkit, CPU), stopped at the 12 h kernel limit after fold 0; not adopted | as r12_rmlp_emb | 0 | fold 0 only: 0.93680 | |
 
 Round four (D11) is running.
 
@@ -694,6 +695,11 @@ the public notebook's epoch choice on the scored fold; we keep the honest versio
 
 Public score of `stack_r12.csv`: 0.95160 against 0.95134 for `stack_r10.csv`, +0.00026 for +0.00006 of CV.
 The RealMLPs help the test set more than the folds show: neural members are the direction to extend.
+
+TabM (`jobs/r13a.txt`, `TabM_D_Classifier`, batch 1024, 12 epochs, same `--fe emb` input and 10% holdout)
+does not fit on a CPU kernel: fold 0 took 6.7 hours and scored 0.93680 against 0.94892 for r12_rmlp_emb on
+the same fold, and Kaggle stopped the kernel at 12 hours during fold 1. Dropped; a GPU run would be needed
+to tune it, and the GPU allowance goes to the GPT-2 member (D24).
 
 
 ## D24. Own target-first GPT-2 member (planned)
