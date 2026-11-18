@@ -133,7 +133,7 @@ def upload(direct: dict) -> None:
         )
 
 
-def fetch(direct: dict, out: Path) -> None:
+def fetch(direct: dict, out: Path, name: str, folds: str) -> None:
     """Stream the pod's `/work/runs` and `/work/pod.log` back and unpack them under `out`.
 
     Raises:
@@ -151,6 +151,9 @@ def fetch(direct: dict, out: Path) -> None:
     with tarfile.open(archive) as tar:
         tar.extractall(out, filter="data")
     archive.unlink()
+    log_file = out / "pod.log"
+    if log_file.exists():  # keep each pod's log beside its fold files, not in the repository root
+        log_file.rename(out / "runs" / name / f"pod_f{folds.replace(',', '')}.log")
     log(f"copied outputs to {out}")
 
 
@@ -247,7 +250,7 @@ def run(api: RunPod, args: argparse.Namespace, lm_args: list[str]) -> int:
             log(f"--max-hours {args.max_hours} passed; deleting the pod")
         if direct and stage == "train":
             try:
-                fetch(direct, Path(args.out))
+                fetch(direct, Path(args.out), args.name, args.folds)
             except (RuntimeError, subprocess.TimeoutExpired) as err:
                 log(f"copy failed: {err}")
     finally:
