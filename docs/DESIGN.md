@@ -702,7 +702,7 @@ the same fold, and Kaggle stopped the kernel at 12 hours during fold 1. Dropped;
 to tune it, and the GPU allowance goes to the GPT-2 member (D24).
 
 
-## D24. Own target-first GPT-2 member (planned)
+## D24. Own target-first GPT-2 member (running)
 
 The strongest single public members are GPT-2 models that read each row as text (about 0.9500 alone), and
 the RealMLPs showed that members unlike our boosters help the public score more than CV shows (D23).
@@ -715,3 +715,31 @@ Training runs for a fixed time (90 minutes a fold) or one epoch, never stopped o
 On a T4 x2 kernel the folds run two at a time, one process per GPU. The owner allowed one run of about 10
 GPU hours (2026-11-18), after the weekly quota resets on 2026-11-21. Smoke test (CPU, tiny random GPT-2,
 3,000 rows, two workers): runs end to end, AUC 0.73 and 0.78 after one minute of training.
+
+**Moved to RunPod (2026-11-18).** The owner offered RunPod instead of waiting for the Kaggle reset and
+approved this run: five A40 pods (Secure Cloud, $0.59/h each), one fold per pod, all in parallel, using the
+fintfm RunPod key this once. `scripts/runpod_lm.py` creates a pod, waits for sshd and the torch install,
+streams `src/` and the two competition CSVs in over SSH (the pod is private and deleted afterwards; nothing
+is uploaded anywhere else), starts `train_lm.py --folds <k>`, polls `/work/EXIT`, streams `/work/runs` back
+and deletes the pod in a `finally`, also on errors, Ctrl-C and a 3.5-hour cap. The pod refuses to train if
+torch cannot see the GPU. `train_lm.py --merge-only` then combines the five fold files locally.
+
+Two pods failed and were deleted by the launcher: the first fold-0 pod because the start command kept the
+SSH session open (fixed by detaching it with `setsid ... < /dev/null`; SSH timeouts are now retried), and
+the first fold-4 pod because its host never finished installing packages in 30 minutes. Both cost about
+$0.35 together.
+
+Measured on the A40: tokenizing 1.0M rows takes about 7 minutes, training about 24,000 tokens/s, so one
+epoch (17,499 steps of 32 rows) takes 41 minutes and ends before the 90-minute budget. Scoring 140k held-out
+rows with 2 orders takes 11-12 minutes, the 300k test rows with 1 order about 13 minutes. A pod costs about
+$0.75; the run about $5 including the failed pods.
+
+| fold | GPT-2 val AUC | r12_rmlp_emb, same fold |
+|---|---|---|
+| 2 | 0.94974 | 0.95453 |
+| 0 | 0.94188 | 0.94892 |
+
+So far 0.005-0.007 below our RealMLP on each fold, and below the public GPT-2 members (about 0.9500 OOF);
+one epoch and two scoring orders are less than their recipe. Whether it helps is decided in the stacks
+(`stack_r12` 0.95138, `stack_pub5` 0.95249), with the usual 4-of-5-folds rule. Results to follow.
+
