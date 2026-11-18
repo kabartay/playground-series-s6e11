@@ -695,3 +695,17 @@ the public notebook's epoch choice on the scored fold; we keep the honest versio
 Public score of `stack_r12.csv`: 0.95160 against 0.95134 for `stack_r10.csv`, +0.00026 for +0.00006 of CV.
 The RealMLPs help the test set more than the folds show: neural members are the direction to extend.
 
+
+## D24. Own target-first GPT-2 member (planned)
+
+The strongest single public members are GPT-2 models that read each row as text (about 0.9500 alone), and
+the RealMLPs showed that members unlike our boosters help the public score more than CV shows (D23).
+`src/train_lm.py` is our own implementation of the recipe in Chris Deotte's S6E10 first-place write-up:
+GPT-2 is fine-tuned on rows written as "fraud yes, amount 61.16, hours 9.77, ..." with the label first and
+the 24 feature fragments in a new random order each time; a held-out row is scored with "yes" and with "no",
+and the difference of the two sequence log-likelihoods is its log-odds, averaged over fixed orders.
+Training runs for a fixed time (90 minutes a fold) or one epoch, never stopped on the scored fold.
+
+On a T4 x2 kernel the folds run two at a time, one process per GPU. The owner allowed one run of about 10
+GPU hours (2026-11-18), after the weekly quota resets on 2026-11-21. Smoke test (CPU, tiny random GPT-2,
+3,000 rows, two workers): runs end to end, AUC 0.73 and 0.78 after one minute of training.
