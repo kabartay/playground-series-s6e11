@@ -283,7 +283,6 @@ def fe_art(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Data
 def fe_emb(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
     """Raw columns plus categorical copies of every numeric column, for networks that embed categories.
 
-
     `emb_<col>`: the integer part of each numeric column as a category (levels pooled over train + test +
     original); for each DIGIT_COLS column also `emb_dec_<col>`, its two decimals as a category, and
     `dec_<col>`, the decimals as a number. Unsupervised. Idea from yekenot's public RealMLP notebook (read as
