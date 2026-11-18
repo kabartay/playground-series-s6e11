@@ -119,9 +119,8 @@ def main() -> None:
                 shutil.copytree(src, dst)
                 meta = src / "meta.json"
                 if not meta.exists():
-                    print(
-                        f"{src.name}: no meta.json, fold files {sorted(p.name for p in src.glob('fold*.npz'))}"
-                    )
+                    done = sorted(p.name for p in src.glob("fold*.npz"))
+                    print(f"{src.name}: no meta.json, fold files {done}")
                     continue
                 m = json.loads(meta.read_text())
                 print(f"{src.name}: CV {m['cv']:.5f} folds {[round(x, 5) for x in m['folds']]}")
