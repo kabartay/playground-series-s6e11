@@ -24,7 +24,7 @@ Personal Kaggle entry (not Finkele work). Repository, docs and chat are in Engli
 
 - The Mac is shared with a 24/7 pipeline and other sessions. Check `uptime` and `memory_pressure` first; keep `THREADS` at 4 or below.
 - FinTFM runs on CPU only here, and only when the machine is quiet; see the fintfm repo's CLAUDE.md for its memory limits.
-- Kaggle GPU quota belongs to fintfm: do not use it here unless the owner says so.
+- Kaggle GPU quota belongs to fintfm: do not use it here unless the owner says so. Exception (owner, 2026-11-18): one own GPT-2 language-model run of about 10 GPU hours, only after the weekly 30-hour quota resets.
 
 ## Git
 
