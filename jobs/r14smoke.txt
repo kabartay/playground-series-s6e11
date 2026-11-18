@@ -1,0 +1,2 @@
+# Round fourteen smoke test (CPU): tiny random GPT-2, 3,000 rows, two worker processes, two folds; saves nothing.
+train_lm.py --name r14_smoke --model sshleifer/tiny-gpt2 --rows 3000 --train-min 1 --folds 0,1 --workers 2 --oof-orders 2 --eval-bs 64

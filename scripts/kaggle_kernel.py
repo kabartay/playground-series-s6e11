@@ -57,8 +57,8 @@ def slug(kernel: str) -> str:
     return f"s6e11-{kernel}"
 
 
-def build(kernel: str, jobs: list[str], out: Path, internet: bool = False) -> None:
-    """Write run.py and kernel-metadata.json for one kernel into `out`."""
+def build(kernel: str, jobs: list[str], out: Path, internet: bool = False, gpu: bool = False) -> None:
+    """Write run.py and kernel-metadata.json for one kernel into `out` (gpu: T4 x2, uses weekly GPU quota)."""
     src = {p.name: p.read_text() for p in sorted((ROOT / "src").glob("*.py"))}
     (out / "run.py").write_text(TEMPLATE.format(src=src, jobs=jobs))
     meta = {
@@ -68,7 +68,7 @@ def build(kernel: str, jobs: list[str], out: Path, internet: bool = False) -> No
         "language": "python",
         "kernel_type": "script",
         "is_private": "true",
-        "enable_gpu": "false",
+        "enable_gpu": "true" if gpu else "false",
         "enable_tpu": "false",
         "enable_internet": "true" if internet else "false",
         "dataset_sources": [ORIGINAL],
@@ -76,6 +76,8 @@ def build(kernel: str, jobs: list[str], out: Path, internet: bool = False) -> No
         "kernel_sources": [],
         "model_sources": [],
     }
+    if gpu:
+        meta["machine_shape"] = "NvidiaTeslaT4"
     (out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2))
 
 
@@ -91,11 +93,14 @@ def main() -> None:
     ap.add_argument("--kernel", required=True)
     ap.add_argument("--jobs", type=Path)
     ap.add_argument("--internet", action="store_true", help="needed by train_fintfm.py (pip + checkpoint)")
+    ap.add_argument(
+        "--gpu", action="store_true", help="T4 x2 GPU kernel: spends fintfm's weekly quota, owner's OK only"
+    )
     a = ap.parse_args()
     ref = f"{USER}/{slug(a.kernel)}"
     if a.action == "push":
         with tempfile.TemporaryDirectory() as t:
-            build(a.kernel, read_jobs(a.jobs), Path(t), a.internet)
+            build(a.kernel, read_jobs(a.jobs), Path(t), a.internet, a.gpu)
             subprocess.run(["kaggle", "kernels", "push", "-p", t], check=True)
     elif a.action == "status":
         subprocess.run(["kaggle", "kernels", "status", ref], check=True)
