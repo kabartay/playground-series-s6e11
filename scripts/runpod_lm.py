@@ -140,7 +140,7 @@ def fetch(direct: dict, out: Path, name: str, folds: str) -> None:
         RuntimeError: tar or SSH failed.
     """
     out.mkdir(parents=True, exist_ok=True)
-    archive = out / "pod_outputs.tgz"
+    archive = out / f"pod_outputs_{name}_f{folds.replace(',', '')}.tgz"  # unique: pods finish together
     with archive.open("wb") as fh:
         proc = subprocess.run(
             [*ssh_args(direct), "cd /work && tar czf - runs pod.log"],
