@@ -83,6 +83,7 @@ rows added to each training fold (0 = not used).
 | r4_glm_c003 | 4 | GLM, C=0.003 | logit TE + one-hot | 0 | 0.94975 | 0.0034 |
 | stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
 | r12_rmlp_emb | 12 | RealMLP, adopted with r12_rmlp_emb_te (stack 4 of 5 folds) | raw + embedded integer parts and decimals (`--fe emb`) | 0 | 0.94949 | 0.0034 |
+| r12_rmlp_emb16 | 12 | RealMLP, 16 networks, not adopted (stack 0.95131) | as r12_rmlp_emb | 0 | 0.94936 | 0.0034 |
 | r12_rmlp_art | 12 | RealMLP (pytabkit, 8 nets x 3 epochs), not adopted (stack 0.95128) | as r8_gb_all_kc, TE m 20 only | 0 | 0.94938 | 0.0035 |
 | r12_rmlp_emb_te | 12 | RealMLP, adopted with r12_rmlp_emb | `--fe emb` + basic-key TE m 20 | 0 | 0.94911 | 0.0036 |
 | xgb_digits_te2_d2 | 2 | XGBoost, depth 2 | raw + digits + TE + pairs | 0 | 0.94926 | 0.0034 |
@@ -685,4 +686,9 @@ folds against 0.95133 (fold 5 down 0.00006): adopted by the rule, written as `su
 a third of its stack gain (+0.00005 against +0.00014). The rest is 16 networks against 8, training on all
 rows against 90%, or the public notebook picking its epoch on the scored fold; these outputs cannot tell
 which.
+
+Ensemble size is not it: r12_rmlp_emb16 (16 networks, `jobs/r12e.txt`) scores 0.94936 (folds 0.94881
+0.95056 0.95469 0.94931 0.94409) against 0.94949 with 8, and in the stack 0.95131 alone or 0.95134 with
+r12_rmlp_emb_te (C=0.1), below `stack_r12`. Not adopted. What remains of the gap is the 10% holdout and
+the public notebook's epoch choice on the scored fold; we keep the honest version.
 
