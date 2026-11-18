@@ -81,8 +81,10 @@ rows added to each training fold (0 = not used).
 | r4_glm_cv10 | 4 | GLM, 10-way inner cross-fit | logit TE + one-hot | 0 | 0.94985 | 0.0034 |
 | r4_glm_c003 | 4 | GLM, C=0.003 | logit TE + one-hot | 0 | 0.94975 | 0.0034 |
 | stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
+| r12_rmlp_art | 12 | RealMLP (pytabkit, 8 nets x 3 epochs), not adopted (stack 0.95128) | as r8_gb_all_kc, TE m 20 only | 0 | 0.94938 | 0.0035 |
 | xgb_digits_te2_d2 | 2 | XGBoost, depth 2 | raw + digits + TE + pairs | 0 | 0.94926 | 0.0034 |
 | lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
+| r12_rmlp_raw | 12 | RealMLP, not adopted (stack 0.95132) | raw + basic-key TE m 20 | 0 | 0.94889 | 0.0037 |
 | lgb_digits_te1 | 2 | LightGBM, 31 leaves | raw + digits + TE (exact values, rounded keys, cents) | 0 | 0.94854 | 0.0035 |
 | lgb_digits_te2 | 2 | LightGBM, 31 leaves | as above + 45 top-10 pairs | 0 | 0.94845 | 0.0034 |
 | lgb_raw_l4 | 2 | LightGBM, 4 leaves | raw | 0 | 0.94752 | 0.0030 |
@@ -646,4 +648,25 @@ inflation shifts each booster's OOF about evenly, so the stack CVs reported so f
 own-model stack is written as `submissions/stack_r11.csv` (Spearman 0.99998 with `stack_r10.csv`); it is
 the cleaner own-model final at the same CV. The older r4/r5/r7 boosters are not rerun: the measured effect
 on the stack is nil.
+
+## D23. Our own RealMLP
+
+Adding yekenot's two public RealMLP outputs to the 22-model own stack (D22, 0.95133) gives 0.95147, up on
+all five folds (C=0.1), so a RealMLP of our own looked worth building. `--model realmlp` in
+`train_gbdt.py` wraps pytabkit's RealMLP_TD_Classifier on the same fold frames as every other model. pytabkit
+picks its best epoch on a validation set; ours is a stratified 10% holdout of the training rows, never the
+scored fold (the public notebook passes the scored fold, which can flatter its OOF the way early stopping
+did in D22). Hyperparameters start from that notebook's tuned values (read as text), with 8 networks
+instead of 16 to fit a Kaggle CPU kernel: about 20 minutes a fold with 127 inputs.
+
+| Run | Inputs | CV | Folds | Stack with it (C=0.1) |
+| --- | --- | --- | --- | --- |
+| r12_rmlp_art | artefacts + digit-key TE (127 columns) | 0.94938 | 0.94827 0.94987 0.95496 0.95036 0.94422 | 0.95125 |
+| r12_rmlp_raw | raw + basic-key TE | 0.94889 | 0.94769 0.95040 0.95443 0.94959 0.94304 | 0.95132 |
+| both | | | | 0.95130 |
+
+Neither helps the stack. Fed target encodings, the network repeats what the GLM and boosters already see
+(rank correlation with r11_gb_all_kc 0.976); the public RealMLP correlates only 0.973 to 0.977 with ours,
+because its inputs differ: the integer part of every numeric column and the decimals as categories that the
+network embeds. `--fe emb` builds that input (our code), and r12c (no TE) and r12d (+ basic-key TE) test it.
 
