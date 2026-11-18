@@ -8,7 +8,8 @@ with the label first and the feature fragments in a random order (a new order ev
 GReaT, Borisov et al. 2023). GPT-2 is fine-tuned on the training fold's rows as plain next-token prediction.
 A held-out row is scored twice, once with "yes" and once with "no"; the difference of the two sequence
 log-likelihoods is the posterior log-odds log p(yes, x) - log p(no, x), averaged over several fixed fragment
-orders. Nothing is tuned or stopped on the validation fold: training runs for a fixed time or one epoch.
+orders. Nothing is tuned or stopped on the validation fold: training runs for a fixed time or
+`--epochs` passes.
 
 Several GPUs: the folds are shared out to one worker process per GPU (`--workers`), each writing
 runs/<name>/fold<k>.npz; the parent merges them into oof.npy, test.npy and meta.json. Each fold scores the
@@ -159,19 +160,23 @@ def run_fold(a: argparse.Namespace, k: int) -> None:
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
     scaler = torch.amp.GradScaler(enabled=dev.type == "cuda")
     n_col = len(COLS)
-    order = rng.permutation(i_tr)
-    steps_epoch = math.ceil(len(order) / a.bs)
+    steps_epoch = math.ceil(len(i_tr) / a.bs)
+    total = math.ceil(a.epochs * steps_epoch)
+    orders = [rng.permutation(i_tr)]  # a new shuffle per epoch, drawn when the epoch starts
     budget = a.train_min * 60
     t1, step, seen_tok = time.time(), 0, 0
     model.train()
-    while step < steps_epoch:
-        frac = max((time.time() - t1) / budget, step / steps_epoch)
+    while step < total:
+        frac = max((time.time() - t1) / budget, step / total)
         if frac >= 1:
             break
         warm = min(1.0, (step + 1) / a.warmup)
         for g in opt.param_groups:
             g["lr"] = a.lr * warm * 0.5 * (1 + math.cos(math.pi * frac))
-        rows = order[step * a.bs : (step + 1) * a.bs]
+        ep, at = divmod(step, steps_epoch)
+        if ep == len(orders):
+            orders.append(rng.permutation(i_tr))
+        rows = orders[ep][at * a.bs : (at + 1) * a.bs]
         perms = [rng.permutation(n_col) for _ in rows]
         seqs = []
         for r, p in zip(rows, perms, strict=True):
@@ -193,11 +198,11 @@ def run_fold(a: argparse.Namespace, k: int) -> None:
         if step % 500 == 0 or step == 1:
             el = time.time() - t1
             print(
-                f"[fold {k}] step {step}/{steps_epoch} loss {loss.item():.4f} "
+                f"[fold {k}] step {step}/{total} loss {loss.item():.4f} "
                 f"{seen_tok / el:.0f} tok/s {el / 60:.1f} min",
                 flush=True,
             )
-    train_rows = min(step * a.bs, len(order))
+    train_rows = min(step * a.bs, int(a.epochs * len(i_tr)))
     print(
         f"[fold {k}] trained {step} steps ({train_rows} rows) in {(time.time() - t1) / 60:.1f} min",
         flush=True,
@@ -227,7 +232,7 @@ def run_fold(a: argparse.Namespace, k: int) -> None:
         f"[fold {k}] val auc {auc:.5f} ({a.oof_orders} orders, {(time.time() - t2) / 60:.1f} min)", flush=True
     )
     t3 = time.time()
-    test = score(fte, np.arange(len(te)), [fixed[k % len(fixed)]])
+    test = score(fte, np.arange(len(te)), [fixed[(k + j) % len(fixed)] for j in range(a.test_orders)])
     print(
         f"[fold {k}] test scored in {(time.time() - t3) / 60:.1f} min; "
         f"fold total {(time.time() - t0) / 60:.1f} min"
@@ -270,6 +275,8 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--warmup", type=int, default=300)
     ap.add_argument("--oof-orders", type=int, default=3)
+    ap.add_argument("--test-orders", type=int, default=1, help="test orders per fold, from fixed[k]")
+    ap.add_argument("--epochs", type=float, default=1.0, help="passes over the fold's training rows")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--merge-only", action="store_true", help="combine fold files from pods")
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves no run")
