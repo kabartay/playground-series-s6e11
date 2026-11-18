@@ -111,15 +111,24 @@ def fit_realmlp(params: dict, Xtr, ytr, Xs: list, seed: int = 0) -> tuple[list[n
     on the other 90%. `params` go to RealMLP_TD_Classifier unchanged (n_ens, n_epochs, batch_size, lr,
     hidden_sizes, ...). Categoricals are the pandas category columns. Needs `pip install pytabkit`.
     `params["cls"]` picks another pytabkit classifier with the same interface (e.g. TabM_D_Classifier).
+    `params["holdout"]` (default 0.1) sets the holdout share; 0 trains on all training rows and hands
+    pytabkit a 5% stratified subset of those same rows as its validation set, so any epoch choice is made
+    on training rows (still never the validation fold). Meant for fixed-epoch runs without early stopping.
     """
     import pytabkit
     import torch
     from sklearn.model_selection import train_test_split
 
     torch.set_num_threads(THREADS)
-    inn, hold = train_test_split(np.arange(len(ytr)), test_size=0.1, stratify=ytr, random_state=100 + seed)
-    Xtr = Xtr.reset_index(drop=True)
     params = dict(params)
+    share = float(params.pop("holdout", 0.1))
+    idx = np.arange(len(ytr))
+    if share > 0:
+        inn, hold = train_test_split(idx, test_size=share, stratify=ytr, random_state=100 + seed)
+    else:
+        inn = idx
+        hold = train_test_split(idx, test_size=0.05, stratify=ytr, random_state=100 + seed)[1]
+    Xtr = Xtr.reset_index(drop=True)
     cls = getattr(pytabkit, params.pop("cls", "RealMLP_TD_Classifier"))
     p = dict(device="cpu", n_threads=THREADS, random_state=seed, verbosity=0)
     p.update(params)
