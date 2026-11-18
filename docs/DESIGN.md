@@ -692,3 +692,6 @@ Ensemble size is not it: r12_rmlp_emb16 (16 networks, `jobs/r12e.txt`) scores 0.
 r12_rmlp_emb_te (C=0.1), below `stack_r12`. Not adopted. What remains of the gap is the 10% holdout and
 the public notebook's epoch choice on the scored fold; we keep the honest version.
 
+Public score of `stack_r12.csv`: 0.95160 against 0.95134 for `stack_r10.csv`, +0.00026 for +0.00006 of CV.
+The RealMLPs help the test set more than the folds show: neural members are the direction to extend.
+

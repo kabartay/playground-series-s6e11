@@ -24,8 +24,9 @@
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-18 | `stack_r12.csv` | 0.95160 | 0.95138 (nested 5-fold CV) | 24 own models: honest boosters + two RealMLPs (D23); best own-model public score |
 | 2026-11-17 | `stack_pub5.csv` | 0.95284 | 0.95249 (nested 5-fold CV) | our 21 models + goodpjw2008's nested wide LM stack (D21); best public score |
-| 2026-11-17 | `stack_r10.csv` | 0.95134 | 0.95132 (nested 5-fold CV) | logistic stack of 22 own models, round ten; best own-model public score |
+| 2026-11-17 | `stack_r10.csv` | 0.95134 | 0.95132 (nested 5-fold CV) | logistic stack of 22 own models, round ten |
 | 2026-11-17 | `stack_pub4.csv` | 0.95219 | 0.95225 (nested 5-fold CV) | our 21 models + 152 public OOF members (D20) |
 | 2026-11-17 | `stack_pub3.csv` | 0.95190 | 0.95204 (nested 5-fold CV) | our 21 models + 52 public OOF members (D19); rank 596 of 2,098 |
 | 2026-11-17 | `stack_pub2.csv` | 0.95164 | 0.95183 (nested 5-fold CV) | our 21 round-eight models + 38 public OOF members (D17); rank 624 of 2,065 at the time |

@@ -19,7 +19,7 @@ test transactions; the competition closes on 2026-11-30.
 > **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95138** (nested CV); best single model 0.95096
 > (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on pooled artefacts, target encodings
 > of exact values and digit keys at three smoothing weights, and joint keys, with key counts). Best submissions:
-> own models CV 0.95132, public 0.95134; with public members CV 0.95249, public 0.95284.
+> own models CV 0.95138, public 0.95160; with public members CV 0.95249, public 0.95284.
 
 ## Contents
 
@@ -113,6 +113,7 @@ Leaderboard submissions:
 
 | Date | Submission | Validation | Public LB |
 | :--- | :--- | :--- | :--- |
+| 2026-11-18 | Logistic stack of 24 own models (round twelve: + two RealMLPs) | 0.95138 (5-fold CV) | 0.95160 |
 | 2026-11-17 | Logistic stack: our 21 models + goodpjw2008's nested wide LM stack (D21) | 0.95249 (5-fold CV) | 0.95284 |
 | 2026-11-17 | Logistic stack of 22 own models (round ten) | 0.95132 (5-fold CV) | 0.95134 |
 | 2026-11-17 | Logistic stack: our 21 models + 152 public OOF members (D20) | 0.95225 (5-fold CV) | 0.95219 |
