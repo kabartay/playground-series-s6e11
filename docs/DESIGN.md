@@ -743,3 +743,9 @@ So far 0.005-0.007 below our RealMLP on each fold, and below the public GPT-2 me
 one epoch and two scoring orders are less than their recipe. Whether it helps is decided in the stacks
 (`stack_r12` 0.95138, `stack_pub5` 0.95249), with the usual 4-of-5-folds rule. Results to follow.
 
+**Paused (owner, 2026-11-19, to save money).** Prepared but not launched: a longer GPT-2 run (`--epochs 3
+--train-min 150 --oof-orders 4 --test-orders 2`, about 3.1 h and $1.8 per A40 pod, about $9 for five) and a
+FinTFM 0.12.0 probe on RunPod (the D8 rows of fold 0, fine-tuned and partitioned contexts against 0.907;
+all folds only if it closes much of the gap; about $1-2). The RunPod balance was $16.35, shared with
+fintfm's pods. The Kaggle GPU launcher for 2026-11-21 was cancelled: it would have rerun this same job.
+
