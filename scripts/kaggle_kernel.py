@@ -108,13 +108,23 @@ def main() -> None:
         with tempfile.TemporaryDirectory() as t:
             subprocess.run(["kaggle", "kernels", "output", ref, "-p", t, "-o"], check=True)
             runs = ROOT / "runs"
-            for meta in Path(t).rglob("meta.json"):
-                dst = runs / meta.parent.name
+            # Run dirs with meta.json, plus train_lm.py dirs holding only per-fold files (kernel cut short).
+            dirs = {p.parent for p in Path(t).rglob("meta.json")} | {
+                p.parent for p in Path(t).rglob("fold*.npz")
+            }
+            for src in sorted(dirs):
+                dst = runs / src.name
                 if dst.exists():
                     shutil.rmtree(dst)
-                shutil.copytree(meta.parent, dst)
+                shutil.copytree(src, dst)
+                meta = src / "meta.json"
+                if not meta.exists():
+                    print(
+                        f"{src.name}: no meta.json, fold files {sorted(p.name for p in src.glob('fold*.npz'))}"
+                    )
+                    continue
                 m = json.loads(meta.read_text())
-                print(f"{meta.parent.name}: CV {m['cv']:.5f} folds {[round(x, 5) for x in m['folds']]}")
+                print(f"{src.name}: CV {m['cv']:.5f} folds {[round(x, 5) for x in m['folds']]}")
             logs = sorted(Path(t).glob("*.log"))
             if logs:
                 shutil.copy(logs[0], runs / f"kernel_{a.kernel}.log")

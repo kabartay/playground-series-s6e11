@@ -1,0 +1,4 @@
+# Round fourteen: own target-first GPT-2 member (train_lm.py) on a T4 x2 GPU kernel, two folds at a time.
+# Owner's OK (2026-11-18): one run of about 10 GPU hours, after the weekly quota resets on 2026-11-21 00:00 UTC.
+# 90 min of training per fold, OOF scored with 2 orders, test with 1 order per fold (5 across folds).
+train_lm.py --name r14_gpt2 --train-min 90 --oof-orders 2 --eval-bs 128

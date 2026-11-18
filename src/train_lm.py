@@ -266,7 +266,7 @@ def main() -> None:
     ap.add_argument("--worker", default="", help=argparse.SUPPRESS)
     ap.add_argument("--train-min", type=float, default=95, help="training time budget per fold (minutes)")
     ap.add_argument("--bs", type=int, default=32)
-    ap.add_argument("--eval-bs", type=int, default=256)
+    ap.add_argument("--eval-bs", type=int, default=128)
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--warmup", type=int, default=300)
     ap.add_argument("--oof-orders", type=int, default=3)
