@@ -271,9 +271,13 @@ def main() -> None:
     ap.add_argument("--warmup", type=int, default=300)
     ap.add_argument("--oof-orders", type=int, default=3)
     ap.add_argument("--seed", type=int, default=2026)
+    ap.add_argument("--merge-only", action="store_true", help="combine fold files from pods")
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves no run")
     a = ap.parse_args()
     ks = [int(k) for k in a.folds.split(",")]
+    if a.merge_only:
+        merge(a, ks)
+        return
     if a.worker:
         for k in (int(x) for x in a.worker.split(",")):
             run_fold(a, k)

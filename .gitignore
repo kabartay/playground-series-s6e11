@@ -9,3 +9,6 @@ __pycache__/
 .ruff_cache/
 .DS_Store
 catboost_info/
+
+# Local secrets (RUNPOD_API_KEY)
+.env
