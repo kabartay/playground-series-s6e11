@@ -1,0 +1,4 @@
+# fintfm 1.0.0 linear readout probe on the starter notebook's holdout (CPU)
+pip install fintfm==1.0.0
+probe_readout.py --fit-rows 5000 --hold-rows 2000
+probe_readout.py --fit-rows 20000 --hold-rows 20000
