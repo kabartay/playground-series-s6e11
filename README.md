@@ -71,11 +71,13 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 
 | Model | Features | CV ROC-AUC |
 | :--- | :--- | :--- |
-| Logistic stack: goodpjw2008's nested wide LM stack + our 21 models (D21) |  | **0.95249** |
+| Same + zero-fraud zones sent to the bottom (D27) |  | **0.95254** |
+| Logistic stack: goodpjw2008's nested wide LM stack + our 21 models (D21) |  | 0.95249 |
 | Logistic stack: our 21 models + 152 public OOF members (D20) |  | 0.95225 |
 | Logistic stack: our 21 models + 52 public OOF members (D19) |  | 0.95204 |
 | Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
+| Logistic stack of 24 own models + zero-fraud zones (D27) |  | 0.95143 |
 | Logistic stack of 24 own models (round twelve: + two RealMLPs on embedded value buckets) |  | 0.95138 |
 | Same, RealMLPs trained on all rows (round sixteen; not adopted, D23) |  | 0.95137 |
 | Same as round twelve + own GPT-2 language model (round fourteen; not adopted, D24) |  | 0.95134 |

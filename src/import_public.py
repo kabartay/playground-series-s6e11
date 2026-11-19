@@ -222,6 +222,41 @@ def members() -> list[dict]:
                     note="RealMLP, 5-fold OOF and fold-mean test; ids checked against train/sample order",
                 )
             )
+    # Weni Mohamed's diverse OOF pack (CC0; BPE-digit boosters, a GLM, RealMLP, TabM). No fold file; the
+    # description states StratifiedKFold(5, shuffle=True, random_state=42), and model_summary.csv gives
+    # per-fold AUCs, which must match ours (checked in main).
+    d = PUB / "wenimohamed__s6e11-diverse-bpe-realmlp-tabm-oof-pack"
+    if d.exists():
+        for r in csv.DictReader(open(d / "model_summary.csv")):
+            out.append(
+                dict(
+                    tag="wm",
+                    name=r["model_name"].removeprefix("weni_"),
+                    oof=d / r["oof_file"],
+                    test=d / r["test_file"],
+                    auc=float(r["oof_roc_auc"]),
+                    fold_aucs=[float(r[f"fold{k}_auc"]) for k in range(5)],
+                    folds=STATED,
+                    source="wenimohamed/s6e11-diverse-bpe-realmlp-tabm-oof-pack",
+                    note=r["architecture"] + "; CC0",
+                )
+            )
+    # yekenot's TabM (pytabkit TabM_D, one epoch, so no early stopping on the scored fold; seed-42 split).
+    d = PUB / "yekenot__tabm-pytabkit"
+    if d.exists():
+        out.append(
+            dict(
+                tag="ym",
+                name="tabm_pytabkit",
+                oof=(d / "oof_preds.csv", "is_fraud"),
+                test=(d / "submission.csv", "is_fraud"),
+                auc=0.94900,
+                fold_aucs=[0.94912, 0.94980, 0.95373, 0.94920, 0.94351],
+                folds=STATED,
+                source="yekenot/ps-s6-e11-tabm-pytabkit (notebook output)",
+                note="TabM_D, 1 epoch, in-fold target encoding; per-fold AUCs from the notebook log",
+            )
+        )
     return out
 
 
@@ -280,6 +315,11 @@ def main() -> None:
         if m["auc"] is not None and abs(auc - m["auc"]) > 1e-4:
             print(f"  skip {label}: AUC {auc:.5f} but source reports {m['auc']:.5f} (row order?)")
             continue
+        if m.get("fold_aucs") is not None:
+            got = [roc_auc_score(y[ours == k], oof[ours == k]) for k in range(5)]
+            if max(abs(a - b) for a, b in zip(got, m["fold_aucs"], strict=True)) > 1e-4:
+                print(f"  skip {label}: fold AUCs {[round(g, 5) for g in got]} differ from the source's")
+                continue
         run = f"pub_{m['tag']}_{slug(m['name'])}"
         d = RUNS / run
         d.mkdir(parents=True, exist_ok=True)
@@ -290,7 +330,11 @@ def main() -> None:
             member=m["name"],
             note=m["note"],
             cv=auc,
-            folds="stated" if m["folds"] == STATED else ("checked" if m["folds"] is not None else "unknown"),
+            folds=(
+                ("stated, fold AUCs match" if m.get("fold_aucs") else "stated")
+                if m["folds"] == STATED
+                else ("checked" if m["folds"] is not None else "unknown")
+            ),
         )
         (d / "meta.json").write_text(json.dumps(meta, indent=2))
         ok += 1

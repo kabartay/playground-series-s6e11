@@ -12,12 +12,16 @@ rows added to each training fold (0 = not used).
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
 | stack: wide LM stack + 2 RealMLP (D21) | 9 | logistic (C=0.1) on 3 OOF | | | **0.95255** | |
+| stack_pub5 + zero-fraud zones 1-4 (D27) | 19 | logistic (C=0.01) on 22 OOF, zone rows sent to the bottom | | | 0.95254 | |
+| stack_pub5 + yekenot TabM (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 23 OOF | | | 0.95251 | |
+| stack_pub5 + 5 new public members (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 27 OOF | | | 0.95250 | |
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
 | stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
 | stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
 | stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
+| stack_r12 + zero-fraud zones 1-4 (own models, D27) | 19 | logistic (C=0.1) on 24 OOF, zone rows sent to the bottom | | | 0.95143 | |
 | stack of round twelve (own models, D23) | 12 | logistic (C=0.1) on 24 OOF: round eleven + r12_rmlp_emb, r12_rmlp_emb_te | | | 0.95138 | |
 | stack of round eleven (own models, honest boosters, D22) | 11 | logistic (C=0.1) on 22 OOF: round ten with the five r8 boosters swapped for r11 | | | 0.95133 | |
 | stack of round ten (own models) | 10 | logistic (C=0.1) on 22 OOF: round eight + r10_glm_tok | | | 0.95132 | |
@@ -848,3 +852,55 @@ Unlike r14 the member gets a real weight in the own stack (0.18), but it takes i
 carry the same signal: the GPT-2-token GLM `r10_glm_tok` falls from 0.56 to 0.29 and `r12_rmlp_emb` from
 0.32 to 0.18, and the stack CV drops. Not adopted; the finals stay `stack_r12` and `stack_pub5`. Closing the
 gap to the public GPT-2 members would need more epochs or a larger model, at several times this cost.
+
+## D27. Round nineteen: new public packs and the zero-fraud zones
+
+Why: the public top moved to about 0.955 (2026-11-19). Reading its notebooks as text, the gap is not better
+models: the top files are blends of public files, each step kept if the public score rose. Their own
+checks agree: a 0.95388 public file scores 0.95246 on labelled rows (alexchilton), and the 0.95508 step
+loses on all five folds (goodpjw2008). Two of their ideas can be checked on our folds, so we tried those.
+
+**New public members (not adopted).** Imported by `src/import_public.py`, which now also checks a
+source's per-fold AUCs against ours when it states them (all eight match within 0.0001):
+
+- [wenimohamed/s6e11-diverse-bpe-realmlp-tabm-oof-pack](https://www.kaggle.com/datasets/wenimohamed/s6e11-diverse-bpe-realmlp-tabm-oof-pack)
+  (CC0): seven members on BPE-digit features, 0.94368-0.95093 (LightGBM 0.95093, CatBoost 0.95068 and
+  0.95067, GLM 0.95027, RealMLP v2 0.95001, TabM 0.94842, RealMLP v1 0.94368).
+- yekenot's [TabM (pytabkit)](https://www.kaggle.com/code/yekenot/ps-s6-e11-tabm-pytabkit) notebook output,
+  0.94900. One epoch, so no early stopping on the scored fold.
+
+busyaprime's 52 members were already in (D20).
+
+| Stack, C=0.01 | CV | Folds | Against `stack_pub5` 0.95249 |
+| --- | --- | --- | --- |
+| + all 8 | 0.95247 | 0.95182 0.95264 0.95724 0.95285 0.94801 | lower |
+| + 5 (BPE LightGBM, CatBoost d5, GLM, RealMLP v2, yekenot TabM) | 0.95250 | 0.95181 0.95272 0.95720 0.95294 0.94803 | 3 up, 1 level, 1 down |
+| + BPE LightGBM | 0.95249 | 0.95178 0.95264 0.95727 0.95295 0.94800 | 2 up |
+| + yekenot TabM | 0.95251 | 0.95184 0.95270 0.95728 0.95290 0.94795 | 3 up |
+| + RealMLP v2 and BPE TabM | 0.95248 | 0.95185 0.95265 0.95724 0.95288 0.94806 | 3 up |
+
+`pub_fa_wide_lm_stack` takes a weight of about 1 in `stack_pub5` and already holds about 90 public members,
+so new members add little to it. None passes the 4-of-5 rule.
+
+**Zero-fraud zones (adopted).** Public notebooks (daoviet, goodpjw2008, Weni Mohamed) found four regions
+with no fraud among the training rows: merchant_risk_score < 13.1 (zone 1); velocity_score <= 4.1 and
+merchant_risk_score <= 20 (zone 2); all eight risk flags clear (cvv_retry_count and prior_disputes 0, the
+six binary flags 0) with velocity_score <= 4.1 and merchant_risk_score <= 33.8 (zone 3), or velocity_score
+<= 6.0 and merchant_risk_score <= 25 (zone 4). Sending these rows to the bottom of the ranking helps if
+they hold no fraud on unseen rows too. They were found on all training rows, so `src/zones.py` refits each
+merchant-risk edge on the four training folds (just below the lowest fraud, capped at the published edge)
+and scores the held-out fold; the velocity edges stay as published, a small optimism this test does not
+remove. The stack's nested out-of-fold scores come from the new `stack.py --oof-out`.
+
+| Stack | CV | Folds | Up |
+| --- | --- | --- | --- |
+| `stack_r12` | 0.95138 | 0.95050 0.95186 0.95620 0.95240 0.94628 | |
+| `stack_r12` + zones 1-4 | 0.95143 | 0.95056 0.95191 0.95625 0.95244 0.94637 | 5 of 5 |
+| `stack_pub5` | 0.95249 | 0.95180 0.95260 0.95727 0.95294 0.94801 | |
+| `stack_pub5` + zones 1-4 | 0.95254 | 0.95185 0.95265 0.95732 0.95297 0.94809 | 5 of 5 |
+
+Zone 1 adds 0.00003 in both stacks and zones 2-4 another 0.00002. 39,149 held-out rows fall in
+the refitted zones and none is a fraud; no refitted edge moved below the published one. On the test set
+16,730 of 299,984 rows are in a zone. Written as `submissions/stack_r12z.csv` and
+`submissions/stack_pub5z.csv` (the zone rows' probabilities multiplied by 1e-6, so they keep their order
+among themselves). Adopted by the rule; both replace their unzoned file as final pick candidates.

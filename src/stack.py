@@ -80,6 +80,7 @@ def main() -> None:
     ap.add_argument("--method", default="logistic", choices=["logistic", "hill"])
     ap.add_argument("--C", type=float, default=1.0, help="logistic stacker regularisation")
     ap.add_argument("--no-hill", action="store_true", help="skip hill climbing (slow on many members)")
+    ap.add_argument("--oof-out", type=Path, help="save nested OOF stack scores (.npy)")
     a = ap.parse_args()
 
     tr, te, _ = load()
@@ -99,7 +100,9 @@ def main() -> None:
     Zt = np.column_stack([p[1] for p in pairs])
     fl = folds(y)
 
-    def nested(fit_score) -> tuple[float, list[float]]:
+    preds: dict[str, np.ndarray] = {}
+
+    def nested(fit_score, key: str) -> tuple[float, list[float]]:
         """Out-of-fold scores of a stacker: fit_score(train_idx, val_idx) returns val predictions."""
         pred = np.full(len(y), np.nan)
         fold_auc = []
@@ -107,6 +110,7 @@ def main() -> None:
             i_tr, i_va = i_tr[m[i_tr]], i_va[m[i_va]]
             pred[i_va] = fit_score(i_tr, i_va)
             fold_auc.append(roc_auc_score(y[i_va], pred[i_va]))
+        preds[key] = pred
         return roc_auc_score(y[m], pred[m]), fold_auc
 
     results = {}
@@ -115,7 +119,7 @@ def main() -> None:
         def lr_fit(i_tr, i_va, C=C):
             return LogisticRegression(C=C, max_iter=1000).fit(Z[i_tr], y[i_tr]).decision_function(Z[i_va])
 
-        results[f"logistic C={C:g}"] = nested(lr_fit)
+        results[f"logistic C={C:g}"] = nested(lr_fit, f"logistic C={C:g}")
     if not a.no_hill:
 
         def hill_fit(i_tr, i_va):
@@ -123,7 +127,7 @@ def main() -> None:
             cal = calibrate(standardise(Z[i_tr], Z[i_tr]) @ w, y[i_tr])
             return cal.decision_function((standardise(Z[i_va], Z[i_tr]) @ w)[:, None])
 
-        results["hill climbing"] = nested(hill_fit)
+        results["hill climbing"] = nested(hill_fit, "hill climbing")
     for k, (cv_k, fa) in results.items():
         print(f"  {k + ' (nested)':28s} {cv_k:.5f}  folds {np.round(fa, 5).tolist()}")
 
@@ -141,6 +145,10 @@ def main() -> None:
         cv, fold_auc = results[f"logistic C={a.C:g}"]
         final = lr.decision_function(Zt)
 
+    if a.oof_out:
+        key = "hill climbing" if a.method == "hill" else f"logistic C={a.C:g}"
+        np.save(a.oof_out, preds[key])
+        print(f"wrote {a.oof_out}")
     if a.out:
         if not m.all() or np.isnan(test).any():
             raise SystemExit("cannot write a submission from probe runs with missing predictions")
