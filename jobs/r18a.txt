@@ -1,6 +1,7 @@
 # Round eighteen: longer own GPT-2 on a T4 x2 GPU kernel (owner's one approved run of about 10 GPU hours).
-# Launch only after the weekly quota resets on 2026-11-21 00:00 UTC, and only on the owner's go for this launch.
-# Folds go 3 + 2 over the two GPUs, so the 10 h allow about 200 min per fold: about 75 min tokenizing and
-# scoring, 120 min training. --epochs 3 is a ceiling; the time budget ends training first (about 1.2 epochs
-# at an estimated T4 speed) and the cosine schedule still decays to zero.
-train_lm.py --name r18_gpt2 --epochs 3 --train-min 120 --oof-orders 2 --test-orders 1 --eval-bs 128
+# Owner's go (2026-11-19); launched only after the weekly quota resets on 2026-11-21 00:00 UTC.
+# Folds go 3 + 2 over the two GPUs. Per fold: about 10 min tokenizing, 100 min training, 60-90 min scoring
+# (T4 speed estimated at 2.5-3.5x below the A40), so 8.7-9.9 h in all, under the 10 h allowance.
+# --epochs 3 is a ceiling; the time budget ends training first (about 1 epoch) and the cosine schedule
+# still decays to zero.
+train_lm.py --name r18_gpt2 --epochs 3 --train-min 100 --oof-orders 2 --test-orders 1 --eval-bs 128
