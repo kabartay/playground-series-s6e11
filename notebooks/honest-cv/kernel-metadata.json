@@ -1,0 +1,15 @@
+{
+  "id": "muhakabartay/s6e11-own-models-only-honest-5-fold-cv",
+  "title": "S6E11 | Own Models Only | Honest 5-Fold CV",
+  "code_file": "s6e11-own-models-honest-cv.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": ["uditjain13/credit-card-fraud-detection-2026"],
+  "competition_sources": ["playground-series-s6e11"],
+  "kernel_sources": [],
+  "model_sources": []
+}
