@@ -424,6 +424,7 @@ def main() -> None:
         " rounds on a 10%% holdout of the training fold and refit on all of it (inner, honest OOF)",
     )
     ap.add_argument("--seeds", type=int, default=1, help="models per fold with different seeds, averaged")
+    ap.add_argument("--seed0", type=int, default=0, help="first seed; seeds run seed0 .. seed0 + seeds - 1")
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves nothing")
     a = ap.parse_args()
     import json
@@ -514,7 +515,7 @@ def main() -> None:
             Xa, Xva, Xte_k = (X.drop(columns=drop) for X in (Xa, Xva, Xte_k))
         n_seeds = 1 if a.model == "glm" else a.seeds
         pv, pt, it = 0.0, 0.0, 0
-        for s in range(n_seeds):
+        for s in range(a.seed0, a.seed0 + n_seeds):
             if a.es == "inner" and a.model in ("lgb", "xgb", "cat"):
                 n = inner_rounds(a.model, params, Xa, ya, wa, init, seed=s, fold=k)
                 v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, None, Xte_k, init, seed=s, n_iter=n)
