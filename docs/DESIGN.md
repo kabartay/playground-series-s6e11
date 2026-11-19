@@ -79,8 +79,10 @@ rows added to each training fold (0 = not used).
 | r5_glm_spl16 | 5 | GLM + splines (16 knots) | logit TE + one-hot | 0 | 0.95006 | 0.0033 |
 | r3_glm | 3 | L2 logistic, C=0.01 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
 | r4_glm_c03 | 4 | GLM, C=0.03 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
+| r16_rmlp_emb_all | 16 | RealMLP on all training rows (no 10% holdout), 5 of 5 folds above r12_rmlp_emb; stack flat (0.95137), not adopted | as r12_rmlp_emb | 0 | 0.94986 | 0.0034 |
 | r4_glm_cv10 | 4 | GLM, 10-way inner cross-fit | logit TE + one-hot | 0 | 0.94985 | 0.0034 |
 | r4_glm_c003 | 4 | GLM, C=0.003 | logit TE + one-hot | 0 | 0.94975 | 0.0034 |
+| r16_rmlp_emb_te_all | 16 | RealMLP on all training rows, 5 of 5 folds above r12_rmlp_emb_te; stack flat, not adopted | as r12_rmlp_emb_te | 0 | 0.94967 | 0.0035 |
 | stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
 | r12_rmlp_emb | 12 | RealMLP, adopted with r12_rmlp_emb_te (stack 4 of 5 folds) | raw + embedded integer parts and decimals (`--fe emb`) | 0 | 0.94949 | 0.0034 |
 | r12_rmlp_emb16 | 12 | RealMLP, 16 networks, not adopted (stack 0.95131) | as r12_rmlp_emb | 0 | 0.94936 | 0.0034 |
@@ -90,6 +92,7 @@ rows added to each training fold (0 = not used).
 | lgb_digits_te2_l4 | 2 | LightGBM, 4 leaves | raw + digits + TE + pairs | 0 | 0.94923 | 0.0033 |
 | r12_rmlp_raw | 12 | RealMLP, not adopted (stack 0.95132) | raw + basic-key TE m 20 | 0 | 0.94889 | 0.0037 |
 | lgb_digits_te1 | 2 | LightGBM, 31 leaves | raw + digits + TE (exact values, rounded keys, cents) | 0 | 0.94854 | 0.0035 |
+| r16_rmlp_emb_all_e5 | 16 | as r16_rmlp_emb_all with 5 epochs; overfits, not adopted | as r12_rmlp_emb | 0 | 0.94854 | 0.0035 |
 | lgb_digits_te2 | 2 | LightGBM, 31 leaves | as above + 45 top-10 pairs | 0 | 0.94845 | 0.0034 |
 | lgb_raw_l4 | 2 | LightGBM, 4 leaves | raw | 0 | 0.94752 | 0.0030 |
 | stack of round one | 1 | logistic on 8 OOF | | | 0.94728 | |
@@ -109,6 +112,7 @@ rows added to each training fold (0 = not used).
 | r5_mlp_a1e2 | 5 | MLP 32, alpha 0.01, 3 seeds | as r5_mlp | 0 | 0.94578 | 0.0037 |
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
 | r13_tabm_emb | 13 | TabM (pytabkit, CPU), stopped at the 12 h kernel limit after fold 0; not adopted | as r12_rmlp_emb | 0 | fold 0 only: 0.93680 | |
+| r14_gpt2 | 14 | own target-first GPT-2 (RunPod A40, one epoch, 2 OOF orders); stack weight about 0, not adopted | rows as text | 0 | 0.94396 | 0.0037 |
 
 Round four (D11) is running.
 
@@ -701,8 +705,23 @@ does not fit on a CPU kernel: fold 0 took 6.7 hours and scored 0.93680 against 0
 the same fold, and Kaggle stopped the kernel at 12 hours during fold 1. Dropped; a GPU run would be needed
 to tune it, and the GPU allowance goes to the GPT-2 member (D24).
 
+**Round sixteen: all training rows.** With early stopping off and three fixed epochs, the 10% holdout only
+chose among three epochs, so `--params {"holdout":0,...}` now trains on all training rows and gives
+pytabkit a 5% subset of those same rows as its validation set (still never the scored fold):
 
-## D24. Own target-first GPT-2 member (running)
+| Run | CV | Folds | Against round twelve |
+| --- | --- | --- | --- |
+| r16_rmlp_emb_all | 0.94986 | 0.94931 0.95077 0.95485 0.95026 0.94436 | +0.00037, 5 of 5 folds |
+| r16_rmlp_emb_te_all | 0.94967 | 0.94892 0.95079 0.95519 0.95023 0.94418 | +0.00056, 5 of 5 folds |
+| r16_rmlp_emb_all_e5 (5 epochs) | 0.94854 | 0.94790 0.94969 0.95365 0.94922 0.94268 | -0.00095; overfits |
+
+Better members, but no stack gain: swapping the pair into `stack_r12` gives 0.95137 (C=1; 0.95136 at
+C=0.1) against 0.95138, adding them beside the round-twelve pair 0.95132, and adding them to `stack_pub5`
+0.95243 against 0.95249. Not adopted by the CV rule. The swapped stack is a candidate for a public check
+only, since the round-twelve RealMLPs helped the public score more than CV showed.
+
+
+## D24. Own target-first GPT-2 member (not adopted)
 
 The strongest single public members are GPT-2 models that read each row as text (about 0.9500 alone), and
 the RealMLPs showed that members unlike our boosters help the public score more than CV shows (D23).
@@ -737,15 +756,27 @@ $0.75; the run about $5 including the failed pods.
 | fold | GPT-2 val AUC | r12_rmlp_emb, same fold |
 |---|---|---|
 | 2 | 0.94974 | 0.95453 |
+| 1 | 0.94567 | 0.95047 |
+| 3 | 0.94362 | 0.95000 |
 | 0 | 0.94188 | 0.94892 |
+| 4 | 0.93877 | 0.94399 |
 
 So far 0.005-0.007 below our RealMLP on each fold, and below the public GPT-2 members (about 0.9500 OOF);
 one epoch and two scoring orders are less than their recipe. Whether it helps is decided in the stacks
-(`stack_r12` 0.95138, `stack_pub5` 0.95249), with the usual 4-of-5-folds rule. Results to follow.
+(`stack_r12` 0.95138, `stack_pub5` 0.95249), with the usual 4-of-5-folds rule.
 
 **Paused (owner, 2026-11-19, to save money).** Prepared but not launched: a longer GPT-2 run (`--epochs 3
 --train-min 150 --oof-orders 4 --test-orders 2`, about 3.1 h and $1.8 per A40 pod, about $9 for five) and a
 FinTFM 0.12.0 probe on RunPod (the D8 rows of fold 0, fine-tuned and partitioned contexts against 0.907;
 all folds only if it closes much of the gap; about $1-2). The RunPod balance was $16.35, shared with
 fintfm's pods. The Kaggle GPU launcher for 2026-11-21 was cancelled: it would have rerun this same job.
+
+**Result.** r14_gpt2 CV 0.94396 (folds above), 0.005-0.007 below RealMLP on every fold. In the stacks it gets
+a weight of about 0 and costs a little: `stack_r12` + r14_gpt2 0.95134 against 0.95138 (C=0.1), `stack_pub5`
++ r14_gpt2 0.95243 against 0.95249 (C=0.01). Not adopted. The public stack member `pub_fa_wide_lm_stack`
+already carries language-model signal, and ours is weaker than the public GPT-2 members.
+
+A third launcher fault lost fold 1 once: folds 1 and 3 finished in the same second and shared one archive
+name, so one copy deleted the other's archive before it was unpacked. Archive and log names are now per
+pod; the fold-1 rerun reproduced 0.94567 exactly (same seed). Total RunPod cost about $7.
 
