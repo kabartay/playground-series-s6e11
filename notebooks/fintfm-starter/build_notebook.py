@@ -40,15 +40,22 @@ holdout carved out of `train.csv`, and the final cell writes `submission.csv` wi
 gradient boosting still wins. Here the interesting questions are *how much context it needs*, *which
 rows to show it*, and *whether it adds anything to a tree model*. The tables answer them.
 
+**New in version 2 (fintfm 1.0.0).** FinTFM's final release adds a *trained linear readout*
+(`fintfm.readout`, from 0.13.0): instead of the network's own head, a logistic regression on the network's
+internal representation of each row decides. It is the configuration behind FinTFM's TabArena-Lite entry.
+Section 9 measures it on the same holdout. The weights are unchanged, so sections 3 to 8 reproduce
+version 1.
+
 | | |
 |---|---|
 | **Code** | [github.com/kabartay/fintfm](https://github.com/kabartay/fintfm), Apache-2.0 |
 | **Weights** | [kabartay/fintfm-binary](https://huggingface.co/kabartay/fintfm-binary), Apache-2.0, 885K parameters |
-| **Install** | `pip install fintfm==0.11.0` |
+| **Install** | `pip install fintfm==1.0.0` (final release; development has ended) |
 | **Inspired by** | [TabPFN-3.5 Starter](https://www.kaggle.com/code/philippsinger/tabpfn-3-5-starter-playground-series-s6e11) by Psi |
 
 **Contents:** 1 Setup · 2 The data · 3 How FinTFM predicts · 4 A reference point · 5 How much context? ·
-6 Which rows to show? · 7 Partitioned contexts · 8 Ensembling · 9 Does it help a tree model? · 10 Submission · 11 Takeaways
+6 Which rows to show? · 7 Partitioned contexts · 8 Ensembling · 9 A trained linear readout · 10 Does it help a tree model? ·
+11 Submission · 12 Takeaways
 """)
 
 md(r"""
@@ -68,12 +75,12 @@ def pip_install(*args):
 
 try:
     import fintfm
-    assert fintfm.__version__ == "0.11.0"
+    assert fintfm.__version__ == "1.0.0"
 except (ImportError, AssertionError):
     try:
-        pip_install("fintfm==0.11.0")
+        pip_install("fintfm==1.0.0")
     except subprocess.CalledProcessError:   # PyPI not yet updated: the same release from its git tag
-        pip_install("fintfm @ git+https://github.com/kabartay/fintfm.git@v0.11.0")
+        pip_install("fintfm @ git+https://github.com/kabartay/fintfm.git@v1.0.0")
 import fintfm
 print("fintfm", fintfm.__version__)
 """)
@@ -326,7 +333,48 @@ table("ensemble")
 """)
 
 md(r"""
-## 9 · Does it help a tree model?
+## 9 · A trained linear readout (new in 0.13.0)
+
+Everything so far used the network's own output head, which was trained on synthetic tasks and only
+*reads* the context. `fintfm.readout.LinearReadoutModel` keeps the network but **trains a logistic
+regression on its internal representation** of each row (with the row's own features beside it), so the
+final decision is fitted to this table. Two details keep it honest:
+
+- **Cross-fitting.** The rows the readout learns from are also context rows. Each is represented by the
+  network with its own fold of rows left out of the context, so no row ever sees its own label, exactly
+  as a test row cannot.
+- **Settings by internal cross-validation** on the training rows only; nothing is chosen on our holdout.
+
+`entry_defaults("binary")` is the measured configuration of FinTFM's TabArena-Lite entry (8 ensemble
+members, 1,000 context rows, partitioned contexts whose depth scales with the row count). Every row costs
+a forward pass per ensemble member, so the readout is fitted on a random sample of the pool.
+""")
+
+code(r"""
+from fintfm.readout import LinearReadoutModel, entry_defaults
+
+RO = entry_defaults("binary"); RO_CKPT = RO.pop("checkpoint")
+READOUT_FIT_ROWS = 2_000 if SMOKE else READOUT_ROWS_FULL
+RO_SPEED_GUESS = None if SMOKE else READOUT_SPEED_GUESS      # holdout rows/s, measured on Kaggle CPU
+
+class Readout:
+    # LinearReadoutModel fitted on a random sample of whatever it is given
+    def __init__(self, rows):
+        self.rows = rows
+    def fit(self, X, y):
+        i = np.random.default_rng(0).choice(len(y), min(self.rows, len(y)), replace=False)
+        self.m = LinearReadoutModel("binary", RO_CKPT, device=DEVICE, random_state=0, **RO).fit(X[i], y[i])
+        return self
+    def predict_proba(self, X):
+        return self.m.predict_proba(X)
+
+evaluate("readout", f"linear readout, fit on {READOUT_FIT_ROWS:,} rows", lambda: Readout(READOUT_FIT_ROWS),
+         RO_SPEED_GUESS)
+table("readout")
+""")
+
+md(r"""
+## 10 · Does it help a tree model?
 
 A weaker model can still improve a stronger one if its mistakes are different. We blend the best FinTFM
 predictions with LightGBM's on the holdout, averaging their **ranks** (ROC-AUC only sees order), with the
@@ -354,7 +402,7 @@ print(f"rank correlation of the two models on the holdout: {np.corrcoef(rk(p_lgb
 """)
 
 md(r"""
-## 10 · Submission
+## 11 · Submission
 
 The best FinTFM setting on the holdout, now with the whole of `train.csv` as its context pool, predicts
 the test set. If the remaining time would not cover the test set at that setting's measured speed, the
@@ -364,6 +412,8 @@ cell falls back to the fastest setting that fits.
 code(r"""
 def make_from(row):
     s = row["setting"]
+    if s.startswith("linear readout"):
+        return lambda: Readout(READOUT_FIT_ROWS)
     if s.startswith("partitioned"):
         return lambda: PartitionedTFMClassifier(fintfm(**kw)(), max_depth=2, random_state=0)
     if "n_ensemble" in s:
@@ -386,7 +436,7 @@ sub.head()
 """)
 
 md(r"""
-## 11 · Takeaways
+## 12 · Takeaways
 
 The full results table, sorted. Read it with the holdout size in mind: with about 330 fraud rows in
 20,000, differences below roughly 0.01 ROC-AUC are within noise.
