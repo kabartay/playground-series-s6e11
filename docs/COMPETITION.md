@@ -22,6 +22,8 @@
 
 ## Our submissions
 
+Final selection (marked on Kaggle 2026-11-19): `stack_pub5z.csv` and `stack_r12z.csv`.
+
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-11-19 | `stack_pub5z.csv` | 0.95288 | 0.95254 (nested 5-fold CV) | `stack_pub5` + zero-fraud zones (D27); best public score, final pick |
