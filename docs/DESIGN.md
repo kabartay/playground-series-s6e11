@@ -907,3 +907,17 @@ among themselves). Adopted by the rule; both replace their unzoned file as final
 
 Public scores (2026-11-19): `stack_r12z` 0.95164 against 0.95160, `stack_pub5z` 0.95288 against 0.95284;
 +0.00004 each, in line with CV (+0.00005). They are the two final picks.
+
+## D28. Two nulls: a residual booster and the original data's rules
+
+**Residual booster (`src/residual.py`, not adopted).** LightGBM on the raw features, started from the
+stack's nested out-of-fold logit (init_score), early-stopped on a 10% split of the training folds, scored
+on the held-out fold. On `stack_r12` it stops after 1-7 rounds: 0.95137 with 4 leaves (1 of 5 folds up)
+and 0.95137 with 8 leaves (0 of 5), against 0.95138. The stack is already well calibrated in log-loss; the
+zones' gain (D27) is a ranking effect at the low end that a log-loss booster does not see.
+
+**Rules in the original data (none found).** If the original's label followed simple rules, decoding them
+would beat any model. It does not look so: LightGBM reaches 0.92782 5-fold AUC on the 20,000 original
+rows, fraud rises smoothly with merchant_risk_score (0.4% in the lowest decile, 5.1% in the highest) and
+velocity_score (0.1% to 4.8%), and zone 1 (merchant_risk_score < 13.1) holds 3 frauds among 1,112 original
+rows. The competition's zero-fraud zones are a property of the synthetic rows, not of a generator rule.
