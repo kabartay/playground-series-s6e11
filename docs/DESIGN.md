@@ -77,10 +77,12 @@ rows added to each training fold (0 = not used).
 | r3_lgb_l4 | 3 | LightGBM, 4 leaves | raw + TE (m-estimate 20, full digit keys) | 0 | 0.95023 | 0.0035 |
 | r4_glm_spl8 | 4 | GLM + cubic splines (8 knots) on numeric columns | logit TE + one-hot | 0 | 0.95015 | 0.0033 |
 | r5_glm_spl16 | 5 | GLM + splines (16 knots) | logit TE + one-hot | 0 | 0.95006 | 0.0033 |
+| r17_rmlp_emb_all_bag3 | 17 | mean of r16_rmlp_emb_all seeds 0-2; 4 of 5 folds up, 1 level; stack flat (0.95139), not adopted | as r12_rmlp_emb | 0 | 0.94996 | 0.0033 |
 | r3_glm | 3 | L2 logistic, C=0.01 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
 | r4_glm_c03 | 4 | GLM, C=0.03 | logit TE + one-hot | 0 | 0.94987 | 0.0034 |
 | r16_rmlp_emb_all | 16 | RealMLP on all training rows (no 10% holdout), 5 of 5 folds above r12_rmlp_emb; stack flat (0.95137), not adopted | as r12_rmlp_emb | 0 | 0.94986 | 0.0034 |
 | r4_glm_cv10 | 4 | GLM, 10-way inner cross-fit | logit TE + one-hot | 0 | 0.94985 | 0.0034 |
+| r17_rmlp_emb_te_all_bag3 | 17 | mean of r16_rmlp_emb_te_all seeds 0-2; 4 of 5 folds up; stack flat, not adopted | as r12_rmlp_emb_te | 0 | 0.94978 | 0.0036 |
 | r4_glm_c003 | 4 | GLM, C=0.003 | logit TE + one-hot | 0 | 0.94975 | 0.0034 |
 | r16_rmlp_emb_te_all | 16 | RealMLP on all training rows, 5 of 5 folds above r12_rmlp_emb_te; stack flat, not adopted | as r12_rmlp_emb_te | 0 | 0.94967 | 0.0035 |
 | stack of round two | 2 | logistic on 7 OOF | | | 0.94952 | |
@@ -780,3 +782,32 @@ A third launcher fault lost fold 1 once: folds 1 and 3 finished in the same seco
 name, so one copy deleted the other's archive before it was unpacked. Archive and log names are now per
 pod; the fold-1 rerun reproduced 0.94567 exactly (same seed). Total RunPod cost about $7.
 
+
+## D25. Round seventeen: RealMLP seed bags (not adopted)
+
+Seeds 1 and 2 of both all-rows RealMLPs (D23) on four Kaggle CPU kernels (`jobs/r17a1.txt` to
+`jobs/r17b2.txt`, new `--seed0` option in `train_gbdt.py`; the seed also moves the 5% validation subset).
+Seed 0 is the round-sixteen run. Each bag is the plain mean of three probability vectors.
+
+| Run | CV | Folds | Against seed 0 |
+| --- | --- | --- | --- |
+| r17_rmlp_emb_all_s1 | 0.94983 | 0.94924 0.95064 0.95503 0.94991 0.94459 | -0.00003 |
+| r17_rmlp_emb_all_s2 | 0.94989 | 0.94934 0.95084 0.95484 0.95034 0.94443 | +0.00003 |
+| r17_rmlp_emb_all_bag3 | 0.94996 | 0.94940 0.95086 0.95499 0.95026 0.94456 | +0.00010, 4 folds up, 1 level |
+| r17_rmlp_emb_te_all_s1 | 0.94969 | 0.94884 0.95072 0.95509 0.95026 0.94405 | +0.00002 |
+| r17_rmlp_emb_te_all_s2 | 0.94967 | 0.94887 0.95077 0.95509 0.95014 0.94398 | 0.00000 |
+| r17_rmlp_emb_te_all_bag3 | 0.94978 | 0.94897 0.95085 0.95521 0.95031 0.94416 | +0.00011, 4 of 5 folds |
+
+Stacks (nested logistic):
+
+| Stack | CV | Folds | Against |
+| --- | --- | --- | --- |
+| `stack_r12` with both bags in place of the round-twelve pair, C=0.1 | 0.95139 | 0.95048 0.95186 0.95628 0.95237 0.94627 | 0.95138, 1 of 5 folds up |
+| `stack_r12` with the emb_all bag and r16_rmlp_emb_te_all, C=0.1 | 0.95140 | 0.95057 0.95183 0.95627 0.95237 0.94626 | 0.95138, 2 of 5 folds up |
+| `stack_r12` plus both bags beside the round-twelve pair, C=0.1 | 0.95133 | 0.95057 0.95188 0.95616 0.95238 0.94603 | 0.95138, lower |
+| `stack_pub5` with both bags in place of its RealMLPs, C=0.01 | 0.95243 | 0.95176 0.95266 0.95725 0.95285 0.94790 | 0.95249, 1 of 5 folds up |
+
+Seed bagging lifts each RealMLP by about 0.0001 but the stack does not move: the logistic stacker already
+averages 24 members, so the seed noise a bag removes is noise the stack had removed. Not adopted; the
+finals stay `stack_r12` and `stack_pub5`. Cost: Kaggle CPU only, about 50 min (emb_all) and 85 min
+(emb_te_all) per kernel.
