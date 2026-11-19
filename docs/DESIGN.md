@@ -115,6 +115,7 @@ rows added to each training fold (0 = not used).
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
 | r13_tabm_emb | 13 | TabM (pytabkit, CPU), stopped at the 12 h kernel limit after fold 0; not adopted | as r12_rmlp_emb | 0 | fold 0 only: 0.93680 | |
 | r14_gpt2 | 14 | own target-first GPT-2 (RunPod A40, one epoch, 2 OOF orders); stack weight about 0, not adopted | rows as text | 0 | 0.94396 | 0.0037 |
+| r18_gpt2_e3 | 18 | own target-first GPT-2 (RunPod A40, three epochs, 4 OOF orders, 2 test orders); stack weight 0.18 but stack CV lower, not adopted | rows as text | 0 | 0.94717 | 0.0035 |
 
 Round four (D11) is running.
 
@@ -811,3 +812,35 @@ Seed bagging lifts each RealMLP by about 0.0001 but the stack does not move: the
 averages 24 members, so the seed noise a bag removes is noise the stack had removed. Not adopted; the
 finals stay `stack_r12` and `stack_pub5`. Cost: Kaggle CPU only, about 50 min (emb_all) and 85 min
 (emb_te_all) per kernel.
+
+## D26. Round eighteen: three-epoch GPT-2 (not adopted)
+
+The longer run prepared in D24, approved by the owner on 2026-11-19: five A40 pods (one fold each,
+`train_lm.py --epochs 3 --train-min 150 --oof-orders 4 --test-orders 2`), the fintfm RunPod key again.
+Each fold trained 52,497 steps (1,679,904 rows, three epochs) in 122-126 minutes, scored its held-out rows
+with 4 orders in about 25 minutes and the test rows with 2 orders in about 26 minutes; 183-192 minutes per
+pod, no failures. Cost: 15.6 pod hours at $0.59/h, about $9.20. No pod was left afterwards. The free Kaggle
+job for 2026-11-21 (`jobs/r18a.txt`, about one epoch on a T4) was cancelled before it was pushed: it would
+have been a weaker copy of this run, and the GPU hours stay with fintfm.
+
+| fold | r18_gpt2_e3 | r14_gpt2 (one epoch) | r12_rmlp_emb |
+|---|---|---|---|
+| 0 | 0.94570 | 0.94188 | 0.94892 |
+| 1 | 0.94832 | 0.94567 | 0.95047 |
+| 2 | 0.95270 | 0.94974 | 0.95453 |
+| 3 | 0.94727 | 0.94362 | 0.95000 |
+| 4 | 0.94210 | 0.93877 | 0.94399 |
+
+CV 0.94717 against 0.94396: three epochs and more orders add 0.0027-0.0038 on every fold, but the member
+stays 0.0018-0.0032 below our RealMLP and below the public GPT-2 members (about 0.9500).
+
+| Stack | CV | Folds | Against |
+| --- | --- | --- | --- |
+| `stack_r12` + r18_gpt2_e3, C=0.1 | 0.95131 | 0.95043 0.95188 0.95628 0.95212 0.94624 | 0.95138, 2 of 5 folds up |
+| `stack_r12` + r18_gpt2_e3, C=1 | 0.95135 | 0.95044 0.95187 0.95625 0.95235 0.94626 | 0.95138, 2 of 5 folds up |
+| `stack_pub5` + r18_gpt2_e3, C=0.01 | 0.95243 | 0.95168 0.95262 0.95721 0.95286 0.94800 | 0.95249, 1 of 5 folds up |
+
+Unlike r14 the member gets a real weight in the own stack (0.18), but it takes it from members that already
+carry the same signal: the GPT-2-token GLM `r10_glm_tok` falls from 0.56 to 0.29 and `r12_rmlp_emb` from
+0.32 to 0.18, and the stack CV drops. Not adopted; the finals stay `stack_r12` and `stack_pub5`. Closing the
+gap to the public GPT-2 members would need more epochs or a larger model, at several times this cost.

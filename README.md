@@ -81,6 +81,7 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | Same as round twelve + own GPT-2 language model (round fourteen; not adopted, D24) |  | 0.95134 |
 | Logistic stack of 22 own models (round eleven: boosters early-stopped inside the training fold) |  | 0.95133 |
 | Logistic stack of 22 own models (round ten: + GLM with GPT-2 token keys) |  | 0.95132 |
+| Same as round twelve + three-epoch GPT-2 (round eighteen; not adopted, D26) |  | 0.95131 |
 | Logistic stack of 21 own models (round eight) |  | 0.95114 |
 | Logistic stack of 14 own models (round seven) |  | 0.95107 |
 | GLM boost: 4-leaf LightGBM from the GLM's logit | + artefacts, TE at m 5/20/100, joint keys, key counts | 0.95096 |
