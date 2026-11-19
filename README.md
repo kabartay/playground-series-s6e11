@@ -77,6 +77,8 @@ train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each f
 | Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
 | Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
 | Logistic stack of 24 own models (round twelve: + two RealMLPs on embedded value buckets) |  | 0.95138 |
+| Same, RealMLPs trained on all rows (round sixteen; not adopted, D23) |  | 0.95137 |
+| Same as round twelve + own GPT-2 language model (round fourteen; not adopted, D24) |  | 0.95134 |
 | Logistic stack of 22 own models (round eleven: boosters early-stopped inside the training fold) |  | 0.95133 |
 | Logistic stack of 22 own models (round ten: + GLM with GPT-2 token keys) |  | 0.95132 |
 | Logistic stack of 21 own models (round eight) |  | 0.95114 |
