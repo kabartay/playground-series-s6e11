@@ -723,6 +723,10 @@ C=0.1) against 0.95138, adding them beside the round-twelve pair 0.95132, and ad
 0.95243 against 0.95249. Not adopted by the CV rule. The swapped stack is a candidate for a public check
 only, since the round-twelve RealMLPs helped the public score more than CV showed.
 
+Public check (2026-11-19, owner's yes): `submissions/stack_r16.csv` (the swapped stack at C=0.1, CV 0.95136)
+scores 0.95163 public against 0.95160 for `stack_r12`. A difference of 0.00003 on about 60,000 public rows
+is noise, and CV is 0.00002 lower, so `stack_r12` stays the own-model final pick.
+
 
 ## D24. Own target-first GPT-2 member (not adopted)
 
