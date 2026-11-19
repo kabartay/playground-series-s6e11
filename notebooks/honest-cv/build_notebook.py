@@ -9,6 +9,7 @@ runs/ and S6E11_DATA at data/.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import nbformat as nbf
@@ -20,8 +21,12 @@ cells: list[nbf.NotebookNode] = []
 
 
 def md(text: str) -> None:
-    """Append a markdown cell."""
-    cells.append(nbf.v4.new_markdown_cell(text.strip("\n")))
+    """Append a markdown cell; a "## N · Title" heading gets an anchor `sN` for the contents links."""
+    text = text.strip("\n")
+    m = re.match(r"## (\d+) · ", text)
+    if m:
+        text = f'<a id="s{m.group(1)}"></a>\n\n' + text
+    cells.append(nbf.v4.new_markdown_cell(text))
 
 
 def code(text: str) -> None:
@@ -48,16 +53,16 @@ so here the five-fold CV decides every choice.
 
 | Section | What it shows |
 | --- | --- |
-| 1 Setup | the library (the same code as the [GitHub repo]({REPO}), MIT) |
-| 2 Data and metric | class balance, the two scores that carry most of the signal |
-| 3 Folds, and the one rule | everything learned from labels stays inside the training fold |
-| 4 Three GLMs | target-encoded value keys, generator artefacts, GPT-2 token keys |
-| 5 Two shallow boosters | 4-leaf LightGBM, and LightGBM started from the GLM ("GLM boost") |
-| 6 RealMLP | a network on value-bucket embeddings |
-| 7 The stack | nested logistic regression, and how noisy the public board is |
-| 8 Zero-fraud zones | four regions with no fraud, checked with their edges refitted in each fold |
-| 9 What did not help | measured in the repo, with numbers |
-| 10 Submission | |
+| [1 · Setup](#s1) | the library (the same code as the [GitHub repo]({REPO}), MIT) |
+| [2 · Data and metric](#s2) | class balance, the two scores that carry most of the signal |
+| [3 · Folds, and the one rule](#s3) | everything learned from labels stays inside the training fold |
+| [4 · Three GLMs](#s4) | target-encoded value keys, generator artefacts, GPT-2 token keys |
+| [5 · Two shallow boosters](#s5) | 4-leaf LightGBM, and LightGBM started from the GLM ("GLM boost") |
+| [6 · RealMLP](#s6) | a network on value-bucket embeddings |
+| [7 · The stack](#s7) | nested logistic regression, and how noisy the public board is |
+| [8 · Zero-fraud zones](#s8) | four regions with no fraud, checked with their edges refitted in each fold |
+| [9 · What did not help](#s9) | measured in the repo, with numbers |
+| [10 · Submission](#s10) | |
 
 Run time on Kaggle CPU: about 2.5 hours, most of it the boosters and the RealMLP.
 """)

@@ -6,6 +6,7 @@ The notebook itself runs on Kaggle (CPU or GPU) or locally; FINTFM_SMOKE=1 shrin
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import nbformat as nbf
@@ -15,8 +16,12 @@ cells: list[nbf.NotebookNode] = []
 
 
 def md(text: str) -> None:
-    """Append a markdown cell."""
-    cells.append(nbf.v4.new_markdown_cell(text.strip("\n")))
+    """Append a markdown cell; a "## N · Title" heading gets an anchor `sN` for the contents links."""
+    text = text.strip("\n")
+    m = re.match(r"## (\d+) · ", text)
+    if m:
+        text = f'<a id="s{m.group(1)}"></a>\n\n' + text
+    cells.append(nbf.v4.new_markdown_cell(text))
 
 
 def code(text: str) -> None:
@@ -53,9 +58,20 @@ version 1.
 | **Install** | `pip install fintfm==1.0.0` (final release; development has ended) |
 | **Inspired by** | [TabPFN-3.5 Starter](https://www.kaggle.com/code/philippsinger/tabpfn-3-5-starter-playground-series-s6e11) by Psi |
 
-**Contents:** 1 Setup · 2 The data · 3 How FinTFM predicts · 4 A reference point · 5 How much context? ·
-6 Which rows to show? · 7 Partitioned contexts · 8 Ensembling · 9 A trained linear readout · 10 Does it help a tree model? ·
-11 Submission · 12 Takeaways
+**Contents**
+
+1. [Setup](#s1)
+2. [The data](#s2)
+3. [How FinTFM predicts](#s3)
+4. [A reference point](#s4)
+5. [How much context?](#s5)
+6. [Which rows to show?](#s6)
+7. [Partitioned contexts](#s7)
+8. [Ensembling](#s8)
+9. [A trained linear readout *(new in version 2)*](#s9)
+10. [Does it help a tree model?](#s10)
+11. [Submission](#s11)
+12. [Takeaways](#s12)
 """)
 
 md(r"""
