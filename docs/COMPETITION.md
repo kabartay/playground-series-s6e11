@@ -24,6 +24,8 @@
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-19 | `stack_pub5z.csv` | 0.95288 | 0.95254 (nested 5-fold CV) | `stack_pub5` + zero-fraud zones (D27); best public score, final pick |
+| 2026-11-19 | `stack_r12z.csv` | 0.95164 | 0.95143 (nested 5-fold CV) | `stack_r12` + zero-fraud zones (D27); best own-model public score, final pick |
 | 2026-11-19 | `stack_r16.csv` | 0.95163 | 0.95136 (nested 5-fold CV) | `stack_r12` with the all-rows RealMLPs (D23); public check only, not a final pick |
 | 2026-11-18 | `stack_r12.csv` | 0.95160 | 0.95138 (nested 5-fold CV) | 24 own models: honest boosters + two RealMLPs (D23); best own-model public score |
 | 2026-11-17 | `stack_pub5.csv` | 0.95284 | 0.95249 (nested 5-fold CV) | our 21 models + goodpjw2008's nested wide LM stack (D21); best public score |

@@ -904,3 +904,6 @@ the refitted zones and none is a fraud; no refitted edge moved below the publish
 16,730 of 299,984 rows are in a zone. Written as `submissions/stack_r12z.csv` and
 `submissions/stack_pub5z.csv` (the zone rows' probabilities multiplied by 1e-6, so they keep their order
 among themselves). Adopted by the rule; both replace their unzoned file as final pick candidates.
+
+Public scores (2026-11-19): `stack_r12z` 0.95164 against 0.95160, `stack_pub5z` 0.95288 against 0.95284;
++0.00004 each, in line with CV (+0.00005). They are the two final picks.
