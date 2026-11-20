@@ -362,30 +362,33 @@ final decision is fitted to this table. Two details keep it honest:
 - **Settings by internal cross-validation** on the training rows only; nothing is chosen on our holdout.
 
 `entry_defaults("binary")` is the measured configuration of FinTFM's TabArena-Lite entry (8 ensemble
-members, 1,000 context rows, partitioned contexts whose depth scales with the row count). Every row costs
-a forward pass per ensemble member, so the readout is fitted on a random sample of the pool.
+members, 1,000 context rows, partitioned contexts whose depth scales with the row count). It is fitted on
+the whole pool: the readout itself represents at most 100,000 of those rows (its internal budget), so the
+fit takes about 15 minutes on Kaggle CPU whatever the pool size. Measured while preparing this version, on
+the same holdout: fitted on 20,000 rows 0.9112, on 100,000 rows 0.9295, on 300,000 rows 0.9308.
 """)
 
 code(r"""
 from fintfm.readout import LinearReadoutModel, entry_defaults
 
 RO = entry_defaults("binary"); RO_CKPT = RO.pop("checkpoint")
-READOUT_FIT_ROWS = 2_000 if SMOKE else READOUT_ROWS_FULL
-RO_SPEED_GUESS = None if SMOKE else READOUT_SPEED_GUESS      # holdout rows/s, measured on Kaggle CPU
+READOUT_FIT_ROWS = 2_000 if SMOKE else None                 # None: every row it is given
+RO_SPEED_GUESS = None if SMOKE else 135                      # holdout rows/s, measured on Kaggle CPU
 
 class Readout:
-    # LinearReadoutModel fitted on a random sample of whatever it is given
-    def __init__(self, rows):
+    # LinearReadoutModel, optionally fitted on a random sample of the rows it is given
+    def __init__(self, rows=None):
         self.rows = rows
     def fit(self, X, y):
-        i = np.random.default_rng(0).choice(len(y), min(self.rows, len(y)), replace=False)
+        i = np.arange(len(y)) if self.rows is None or self.rows >= len(y) else \
+            np.random.default_rng(0).choice(len(y), self.rows, replace=False)
         self.m = LinearReadoutModel("binary", RO_CKPT, device=DEVICE, random_state=0, **RO).fit(X[i], y[i])
         return self
     def predict_proba(self, X):
         return self.m.predict_proba(X)
 
-evaluate("readout", f"linear readout, fit on {READOUT_FIT_ROWS:,} rows", lambda: Readout(READOUT_FIT_ROWS),
-         RO_SPEED_GUESS)
+ro_name = "linear readout, whole pool" if READOUT_FIT_ROWS is None else f"linear readout, {READOUT_FIT_ROWS:,} rows"
+evaluate("readout", ro_name, lambda: Readout(READOUT_FIT_ROWS), RO_SPEED_GUESS)
 table("readout")
 """)
 
@@ -467,20 +470,24 @@ summary
 md(r"""
 What this notebook shows, in general terms (the numbers are in the table above):
 
-1. **Context is the main dial for an in-context model**, in size and in which rows are chosen. On a 1.7%
+1. **For the in-context head, context is the main dial**, in size and in which rows are chosen. On a 1.7%
    fraud rate a random context holds very few fraud examples, so how the context is built matters as much
    as how big it is.
-2. **Even an untuned gradient-boosted tree remains the stronger single model here**, as FinTFM's own
-   README says for real credit panels. It sees every training row; FinTFM sees a few thousand at a time.
-3. **The useful question is complementarity**: section 9 measures whether FinTFM's different view of the
+2. **A trained readout beats every in-context setting.** Fitting the final decision to this table, on the
+   network's representation, gains more than any choice of context. It is also cheaper at prediction time.
+3. **Even an untuned gradient-boosted tree remains the stronger single model here**, as FinTFM's own
+   README says for real credit panels. It learns from every training row; FinTFM's network sees a thousand
+   at a time.
+4. **The useful question is complementarity**: section 10 measures whether FinTFM's different view of the
    data adds anything to a tree model.
 
-**Where to go from here:** larger contexts on a GPU session; `context_positive_floor` to fix the number
-of fraud rows in a uniform context; partitioned contexts with more bags (`n_bags`); and FinTFM as one
-member of a stacked ensemble, with out-of-fold predictions on the same folds as the trees.
+**Where to go from here:** FinTFM's development ended with 1.0.0, so these are things to try with the
+released package: the readout as one member of a stacked ensemble, with out-of-fold predictions on the
+same folds as the trees; the readout with more ensemble members on a GPU session; and
+`context_positive_floor` to fix the number of fraud rows in an in-context run.
 
-*FinTFM is developed in the open at [github.com/kabartay/fintfm](https://github.com/kabartay/fintfm);
-its measurement log records every result, including the negative ones. Questions and comments welcome.*
+*FinTFM's code and measurement log are at [github.com/kabartay/fintfm](https://github.com/kabartay/fintfm);
+the log records every result, including the negative ones. Questions and comments welcome.*
 """)
 
 nb = nbf.v4.new_notebook(cells=cells)
