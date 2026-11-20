@@ -1,6 +1,6 @@
 # FinTFM starter notebook
 
-An educational Kaggle notebook: FinTFM 0.11.0 zero-shot on S6E11, with measured sweeps over context size,
+An educational Kaggle notebook: FinTFM (1.0.0 since notebook version 2) on S6E11, with measured sweeps over context size,
 context strategy, partitioned contexts and ensembling, a LightGBM reference on the same holdout, a blend
 check, and a submission from the best setting.
 
@@ -39,3 +39,19 @@ FinTFM 0.11.0, 4 CPU threads, 20,000-row stratified holdout (334 fraud), context
 
 Version 1 on Kaggle still calls the LightGBM reference "tuned"; the repository's notebook says "untuned"
 (1a89412). The correction goes out with the next pushed version.
+
+## Version 2 (fintfm 1.0.0, pushed 2026-11-20 as Kaggle version 3)
+
+Same checkpoint (commit f116bfd, SHA-256 d231b06...), so sections 3-8 reproduce version 1. New section 9: the
+linear readout (`fintfm.readout.LinearReadoutModel`, entry defaults), fitted on the whole pool. Probed
+beforehand on Kaggle CPU (`src/probe_readout.py`, jobs ro1 and ro2) on the same 20,000-row holdout:
+
+| Readout fitted on | Holdout AUC | Fit | Holdout scoring |
+| --- | --- | --- | --- |
+| 5,000 rows (first 2,000 holdout rows only) | 0.9207 | 219 s | 39 rows/s |
+| 20,000 rows | 0.9112 | 331 s | 138 rows/s |
+| 100,000 rows | 0.9295 | 874 s | 138 rows/s |
+| 300,000 rows | 0.9308 | 905 s | 138 rows/s |
+
+The readout represents at most 100,000 rows itself, so the fit cost is flat beyond that. Smoke copy
+(`SMOKE = True`, private kernel s6e11-ftfm-v2-smoke) ran every section end to end in 0.3 h.
