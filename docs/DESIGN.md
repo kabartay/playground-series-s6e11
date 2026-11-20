@@ -1019,6 +1019,13 @@ and a public notebook reported a higher GLM with a tighter solver. On fold 0 of 
 iterations (54 s against 123 s), and both score 0.94957, the same as the default run (47 iterations). Our
 GLM was already converged for ranking; newton-cholesky is only faster.
 
+**Board Model + RealMLP re-read (2026-11-20, version 16, public 0.95533).** goodpjw2008's notebook (read
+as text) now climbs from 0.95504 to 0.95533 with steps chosen by a model fitted on 167 public scores. By the
+notebook's own replay, its last three steps lose OOF AUC (step M -0.00011 against step L; step N -0.00015
+against step M, 0 of 5 folds up). It names step I as its CV-supported file, and the LM Ladder `submission_cv.csv`
+(OOF 0.95266, D19) as the safer private pick. Every dataset it reads is already imported here (D15-D21, D29),
+and its zones are inside our zones 1-4. Nothing new to test on our folds.
+
 **FinTFM readout member (null).** fintfm 1.0.0 `LinearReadoutModel` with entry defaults
 (`src/train_readout.py`), run as three Kaggle CPU kernels (folds 0-1, 2-3, 4 and test) and merged:
 `r20_fintfm_ro` CV 0.94054, folds [0.93932, 0.94210, 0.94552, 0.94061, 0.93547]. In the own-models stack
