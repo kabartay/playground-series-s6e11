@@ -1024,7 +1024,7 @@ rank fractions, take their maximum (minimum); other rows keep the stack_pubwz sc
 so the OOF score is honest. Against stack_pubwz (0.95263), over thresholds 0.90/0.10 to 0.99/0.01: with
 stack_pub5 and the wide LM stack voting, -0.1 to -1.1 points, at most 2 of 5 folds up; adding stack_r12, -0.5
 to -11.6, 0 of 5; the 22 stack_pub5 members, -1.5 to -49.8, 0 of 5. The more members vote, the more the most
-confident one overrides the stack's weighted order. Script: scratchpad `minmax.py` (not kept).
+confident one overrides the stack's weighted order. Script: `src/minmax_tails.py`.
 
 **Board Model + RealMLP re-read (2026-11-20, version 16, public 0.95533).** goodpjw2008's notebook (read
 as text) now climbs from 0.95504 to 0.95533 with steps chosen by a model fitted on 167 public scores. By the
