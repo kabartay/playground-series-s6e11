@@ -1010,6 +1010,11 @@ of the encoders' inner cross-fitting split, which was always 0. `r10_glm_tok` wi
 0.94630, 4 of 5 up (fold 0 down). Kept beside it instead: 0.95129. The gain is +0.00002 and the own-models
 stack is no longer a final pick, so no file was submitted.
 
-**Still running (results to follow here):** a GLM convergence check (`--params`
-`solver` and `tol`, new; lbfgs at sklearn's default tolerance stops after 39-48 iterations), and the FinTFM
+**GLM convergence (null).** lbfgs at sklearn's default tolerance (1e-4) stops after 39-48 iterations,
+and a public notebook reported a higher GLM with a tighter solver. On fold 0 of `r10_glm_tok` (new
+`--params` `solver` and `tol`): lbfgs at 1e-7 takes 235 iterations, newton-cholesky at 1e-7 takes 10
+iterations (54 s against 123 s), and both score 0.94957, the same as the default run (47 iterations). Our
+GLM was already converged for ranking; newton-cholesky is only faster.
+
+**Still running (results to follow here):** the FinTFM
 1.0.0 linear readout as a member (`src/train_readout.py`, three Kaggle CPU kernels).

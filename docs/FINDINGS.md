@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-20. The competition closes 2026-11-30 23:59 UTC. Round twenty (D29) is still running, so two results are marked "pending (D29)". This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-20. The competition closes 2026-11-30 23:59 UTC. Round twenty (D29) is still running, so one result is marked "pending (D29)". This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -297,6 +297,7 @@ Every idea below was tried and not adopted. "Folds up" is against what it would 
 | Idea | Result | Decision |
 | --- | --- | --- |
 | GLM with C=0.003 | 0.94975 (-0.00012) | D12 |
+| GLM solved to tolerance 1e-7 (lbfgs, 235 iterations; newton-cholesky, 10 iterations) | fold 0 0.94957, same as the default run (47 iterations) | D29 |
 | GLM with C=0.03 | 0.94987 (0.00000) | D12 |
 | GLM boost, learning rate 0.015, feature fraction 0.3 | 0.95055 (-0.00001) | D12 |
 | GLM boost, 8 leaves, `min_child_samples` 200 | 0.95050 (-0.00006) | D12 |
@@ -372,7 +373,6 @@ Segment AUCs of `stack_r12` are flat (0.93 to 0.96) and calibration by segment i
 
 | Item | Status |
 | --- | --- |
-| GLM convergence check (`--params` `solver` and `tol`; lbfgs at sklearn's default tolerance stops after 39 to 48 iterations) | pending (D29) |
 | FinTFM 1.0.0 linear readout as a stack member (`src/train_readout.py`, three Kaggle CPU kernels) | pending (D29) |
 
 ## 7. Discussion
@@ -487,7 +487,7 @@ Competition data: subject to the competition rules, not included in the repo. Or
 
 | Idea | Why not tried or not finished |
 | --- | --- |
-| GLM convergence check, FinTFM readout member | pending (D29) |
+| FinTFM readout member | pending (D29) |
 | TabM tuned on a GPU | CPU took 6.7 h for fold 0 and hit the 12-hour limit; the Kaggle GPU quota belongs to another project (D23, D24) |
 | A larger or longer GPT-2 member | would cost several times the $9.20 of the three-epoch run, for a member still 0.0018 to 0.0032 below our RealMLP (D26) |
 | FinTFM fine-tuned or partitioned-context probe on RunPod | prepared and paused by the owner to save money (D24) |
