@@ -344,6 +344,16 @@ Both own GPT-2 runs stayed below our RealMLP on every fold: by 0.005 to 0.007 (o
 | Residual LightGBM started from the stack's nested logit (4 or 8 leaves) | 0.95137 and 0.95137; 1 and 0 of 5; stops after 1 to 7 rounds | not run | D28 |
 | Hill climbing or rank average in place of the logistic stacker | within 0.00002 of the logistic stacker on seven round-two members (rank average 0.00019 lower) | | D11 |
 
+MinMax tail selection was checked against `stack_pubwz` (0.95263) instead: where every member's rank fraction is above `hi` (below `lo`), the row takes the members' maximum (minimum), and every other row keeps the pubwz score. Nothing is fitted, so the OOF figure is honest.
+
+| Members voting | 0.90/0.10 | 0.95/0.05 | 0.98/0.02 | 0.99/0.01 |
+| --- | --- | --- | --- | --- |
+| stack_pub5 and wide LM stack | -1.1 pts; 2 of 5 up | -0.3; 1 of 5 | -0.1; 2 of 5 | -0.0; 2 of 5 |
+| + stack_r12 | -11.6; 0 of 5 | -5.4; 0 of 5 | -1.9; 0 of 5 | -0.5; 0 of 5 |
+| the 22 stack_pub5 members (also with the wide LM stack) | -49.8; 0 of 5 | -23.5; 0 of 5 | -7.1; 0 of 5 | -1.5; 0 of 5 |
+
+(1 pt = 0.00001 AUC.) The more members vote, the larger the loss: the maximum hands the agreed top tail to whichever member is most confident, and the stack's weighted order is the better one there (D29).
+
 Leaves with no fraud in the four training folds still hold 43 to 615 frauds on the held-out folds, so tree-found zones do not generalise as the hand zones do (D29). Standardising member logits loses on its own (the control), so at a fixed C the raw-logit stacker regularises better here (D29).
 
 ### 6.6 Public members and wide stacks
