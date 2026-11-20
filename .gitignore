@@ -12,3 +12,6 @@ catboost_info/
 
 # Local secrets (RUNPOD_API_KEY)
 .env
+
+# Local experiment logs (results go into docs/DESIGN.md)
+logs/

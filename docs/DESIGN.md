@@ -11,7 +11,9 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack: wide LM stack + 2 RealMLP (D21) | 9 | logistic (C=0.1) on 3 OOF | | | **0.95255** | |
+| stack_pubwz: 0.5 stack_pub5 + 0.5 wide LM stack, + zones 1-4 (D29) | 20 | fit-free logit-rank average, zone rows sent to the bottom | | | **0.95263** | |
+| wide LM stack + zones 1-4 (D29; 2 of 5 folds against stack_pub5z) | 20 | public stack, zone rows sent to the bottom | | | 0.95261 | |
+| stack: wide LM stack + 2 RealMLP (D21) | 9 | logistic (C=0.1) on 3 OOF | | | 0.95255 | |
 | stack_pub5 + zero-fraud zones 1-4 (D27) | 19 | logistic (C=0.01) on 22 OOF, zone rows sent to the bottom | | | 0.95254 | |
 | stack_pub5 + yekenot TabM (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 23 OOF | | | 0.95251 | |
 | stack_pub5 + 5 new public members (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 27 OOF | | | 0.95250 | |
@@ -921,3 +923,76 @@ would beat any model. It does not look so: LightGBM reaches 0.92782 5-fold AUC o
 rows, fraud rises smoothly with merchant_risk_score (0.4% in the lowest decile, 5.1% in the highest) and
 velocity_score (0.1% to 4.8%), and zone 1 (merchant_risk_score < 13.1) holds 3 frauds among 1,112 original
 rows. The competition's zero-fraud zones are a property of the synthetic rows, not of a generator rule.
+
+## D29. Round twenty: stacker ideas, new members, and averaging with the wide LM stack
+
+Why: our two picks sit at the honest ceiling that other entrants report too (zohrab's WideLM alone 0.95257,
+yashteotia's 278-model pool 0.95261, both on our folds). We brainstormed what could still add signal, tried
+the cheap ideas on both final stacks, and read the public discussions and Chris Deotte's past Playground
+solutions (GitHub, read as text) for more. Every test is nested on the shared folds and judged by the
+4-of-5-folds rule against the stack it would replace: `stack_r12` (own models, C=0.1, 0.95138) and
+`stack_pub5` (with public members, C=0.01, 0.95249).
+
+**Averaging with the wide LM stack (adopted).** `pub_fa_wide_lm_stack` alone scores 0.95257, more than
+`stack_pub5` (which holds it as a member) without zones. A fit-free average of logit-ranks, then zones
+1-4 (`zones.py`, D27):
+
+| File | CV | Folds | Against `stack_pub5z` 0.95254 |
+| --- | --- | --- | --- |
+| wide LM stack + zones 1-4 | 0.95261 | 0.95182 0.95258 0.95742 0.95273 0.94852 | 2 of 5 up |
+| 0.25 pub5 + 0.75 wide, + zones | 0.95263 | 0.95186 0.95265 0.95742 0.95282 0.94845 | 3 up, 1 level |
+| **0.5 pub5 + 0.5 wide, + zones (`stack_pubwz`)** | **0.95263** | 0.95188 0.95269 0.95740 0.95290 0.94835 | **4 of 5 up** |
+| 0.75 pub5 + 0.25 wide, + zones | 0.95260 | 0.95188 0.95268 0.95737 0.95295 0.94823 | 4 of 5 up |
+
+The zones alone lift the wide stack on all five folds (0.95257 to 0.95261). Weight 0.5 is the untuned
+default; 0.75 also passes, so the result does not hinge on the weight. The two inputs' test logit-ranks
+correlate at 0.9990. Written as `submissions/stack_pubwz.csv`; it replaces `stack_pub5z` as the CV pick. Public score
+(2026-11-20): 0.95293 against 0.95288 for `stack_pub5z`, +0.00005 (CV +0.00009).
+
+**Stacker ideas (`src/stack_ideas.py`, none adopted).**
+
+| Idea | `stack_r12` (0.95138) | `stack_pub5` (0.95249) |
+| --- | --- | --- |
+| Pairwise (RankNet-style) logistic on member-logit differences, 300k pairs, C 0.01 / 0.1 / 1 | 0.95127 / 0.95126 / 0.95125; 2, 2, 1 of 5 up | 0.95010 / 0.94996 / 0.94991; 3, 2, 2 of 5 up |
+| Segment stacker: member logit x merchant-risk quartile (C 0.01 / 0.1) | 0.95107 / 0.95106; 0 of 5 | 0.95232 / 0.95240; 1, 0 of 5 |
+| Segment stacker: x velocity quartile | 0.95115 / 0.95115; 0 of 5 | 0.95240 / 0.95249; 0, 2 of 5 |
+| Segment stacker: x 3 x 3 grid of both | 0.95100 / 0.95091; 0 of 5 | 0.95226 / 0.95232; 1, 0 of 5 |
+| Tree-found zero-fraud leaves on top of zones 1-4 (min leaf 500-5,000) | 0.93214-0.95015; 0 of 5 | 0.93286-0.95124; 0 of 5 |
+| Members rank-gaussianised over all rows | 0.95101; 1 of 5 | 0.95209; 0 of 5 |
+| Members rank-gaussianised within each fold (Deotte, s6e3) | 0.95111; 1 of 5 | 0.95212; 0 of 5 |
+| Members + disagreement columns (mean, SD, range), standardised | 0.95118; 0 of 5 | 0.95234; 1 of 5 |
+| Members standardised (control for the row above) | 0.95110; 0 of 5 | 0.95224; 1 of 5 |
+
+Leaves with no fraud in the four training folds still hold 43-615 frauds on the held-out folds, so
+tree-found zones do not generalise the way the hand zones do. Standardising member logits loses on its own
+(the control), so at a fixed C the raw-logit stacker regularises better here.
+
+**Best-matching original row (`src/research_ogmatch.py`, not adopted).** For each row, the original rows
+sharing the most exact values over the six high-cardinality columns: ogm_max (1 for 513,594 rows, fraud
+1.87%; 2 for 186,070 rows, 1.12%), the count of such rows, and their fraud rate (AUC alone 0.60878).
+Added to `stack_r12`'s stacker: 0.95134 against 0.95138. It repeats D14's copied-pair signal.
+
+**New public members (not adopted).** Imported by `src/import_public.py` (fold files checked against ours
+where shipped): megayak's GPT-2 target-first LM (CC0, 0.95043; its OOF is log-odds and its test file
+rank fractions, so both are ranked before the logit), megayak's 8-seed RealMLP (CC0, 0.95017), and
+DavutKursun's XGBoost-on-GLM bag (Apache-2.0, 0.95069). Against `stack_pub5` (C=0.01): + LM 0.95244 (2 of
+5 up), + RealMLP 0.95240 (1 of 5), + XGB bag 0.95216 (0 of 5), all three 0.95198. The wide LM stack
+already holds these families.
+
+**Error inspection (`stack_r12`, not a model).** Segment AUCs are flat (0.93-0.96) and calibration by
+segment is close (No Authentication 6.41% predicted against 6.45% actual). 433,210 rows with every risk
+flag clear hold 13% of frauds but 47% of the fraud-side AUC loss (AUC 0.8988 within them); every member
+scores 0.888-0.898 there. A LightGBM on raw columns started from the stack's logit loses 0.00044 (0 of 5),
+as in D28. Member disagreement does not mark errors. No targeted fix is indicated.
+
+**From the discussions.** Probing the public board, simulated on out-of-fold rows (yashteotia): +0.00027
+on 60k "public" rows, -0.00010 on 240k "private" rows, which supports picking by CV. A logistic
+regression fitted on the 20k original rows alone scores 0.934 on train (yashteotia), consistent with the
+GLM-first design (D16-D17). Seven more public banks (TabPFN-3.5 pairs, a digit CNN, TabPack and others)
+are not imported: yashteotia's pool includes them and gains 0.00004 over the wide LM stack, and their
+Kaggle metadata states no licence.
+
+**Still running (results to follow here):** a 3-seed encoder bag of `r10_glm_tok` (`train_gbdt.py
+--enc-seed`, new; the encoders' inner split was always seed 0), a GLM convergence check (`--params`
+`solver` and `tol`, new; lbfgs at sklearn's default tolerance stops after 39-48 iterations), and the FinTFM
+1.0.0 linear readout as a member (`src/train_readout.py`, three Kaggle CPU kernels).

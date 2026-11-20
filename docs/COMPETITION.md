@@ -22,10 +22,12 @@
 
 ## Our submissions
 
-Final selection (marked on Kaggle 2026-11-19): `stack_pub5z.csv` and `stack_r12z.csv`.
+Final selection (marked on Kaggle 2026-11-19): `stack_pub5z.csv` and `stack_r12z.csv`. Planned change
+(2026-11-20, D29): `stack_pubwz.csv` in place of `stack_pub5z.csv`, to be marked on the website.
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-20 | `stack_pubwz.csv` | 0.95293 | 0.95263 (nested 5-fold CV) | 0.5 `stack_pub5` + 0.5 wide LM stack (logit-ranks) + zero-fraud zones (D29); 4 of 5 folds above `stack_pub5z`; best public score, final pick candidate |
 | 2026-11-20 | honest-CV notebook, Kaggle version 1 | 0.95155 | 0.95135 (nested 5-fold CV, local check of the same six runs) | public notebook: six own models, nested stack + zones; submitted from the notebook, not a final pick |
 | 2026-11-20 | FinTFM starter, Kaggle version 3 | 0.94105 | 0.9296 (single 20,000-row holdout) | fintfm 1.0.0 linear readout fitted on the whole pool; up from 0.91516 for Kaggle version 2 (in-context, partitioned + balanced) |
 | 2026-11-19 | `stack_pub5z.csv` | 0.95288 | 0.95254 (nested 5-fold CV) | `stack_pub5` + zero-fraud zones (D27); best public score, final pick |

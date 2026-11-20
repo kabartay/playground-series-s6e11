@@ -63,7 +63,8 @@ def make_design(params: dict, Xtr):
 def fit_glm(params: dict, Xtr, ytr, Xs: list) -> tuple[list[np.ndarray], int]:
     """L2 logistic regression on the GLM design; returns logits for each frame in Xs and the iteration count.
 
-    params: `C` (default 0.01) and `splines` (see make_design).
+    params: `C` (default 0.01), `splines` (see make_design), and `solver` / `tol` (default lbfgs, 1e-4,
+    sklearn's defaults; D29 checks whether lbfgs stops before convergence).
     """
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
@@ -71,7 +72,8 @@ def fit_glm(params: dict, Xtr, ytr, Xs: list) -> tuple[list[np.ndarray], int]:
     design = make_design(params, Xtr)
     Dtr = design(Xtr)
     sc = StandardScaler().fit(Dtr)
-    m = LogisticRegression(C=params.get("C", 0.01), max_iter=3000)
+    solver, tol = params.get("solver", "lbfgs"), params.get("tol", 1e-4)
+    m = LogisticRegression(C=params.get("C", 0.01), solver=solver, tol=tol, max_iter=3000)
     m.fit(sc.transform(Dtr), ytr)
     return [m.decision_function(sc.transform(design(X))) for X in Xs], int(m.n_iter_[0])
 
@@ -328,7 +330,9 @@ def chain_rates(Kfit: np.ndarray, yfit: np.ndarray, Kapp: np.ndarray, m: float) 
     return out
 
 
-def hier_te(Ktr: pd.DataFrame, ytr: np.ndarray, others: list, m: float, cv: int) -> list[pd.DataFrame]:
+def hier_te(
+    Ktr: pd.DataFrame, ytr: np.ndarray, others: list, m: float, cv: int, seed: int = 0
+) -> list[pd.DataFrame]:
     """Hierarchical target encoding of the DIGIT_COLS key chains (HIER_LEVELS), fitted on the training rows.
 
     Training rows are cross-fitted over `cv` inner folds; the other frames use all training rows. Columns
@@ -346,7 +350,7 @@ def hier_te(Ktr: pd.DataFrame, ytr: np.ndarray, others: list, m: float, cv: int)
         names += [f"te_h_{k[2:]}" for k in keys]
         A = Ktr[keys].to_numpy()
         inner = np.empty((len(A), len(keys)))
-        for i_fit, i_app in StratifiedKFold(cv, shuffle=True, random_state=0).split(A, ytr):
+        for i_fit, i_app in StratifiedKFold(cv, shuffle=True, random_state=seed).split(A, ytr):
             inner[i_app] = chain_rates(A[i_fit], ytr[i_fit], A[i_app], m)
         blocks[0].append(inner)
         for j, K in enumerate(others, start=1):
@@ -411,6 +415,9 @@ def main() -> None:
     )
     ap.add_argument("--te-cv", type=int, default=5, help="inner cross-fitting folds of the target encoder")
     ap.add_argument(
+        "--enc-seed", type=int, default=0, help="seed of the encoders' inner cross-fitting split (D29)"
+    )
+    ap.add_argument(
         "--hier",
         type=float,
         default=0,
@@ -472,7 +479,7 @@ def main() -> None:
         frames = [[], [], [], []]
         for j, sm in enumerate(a.te_smooth.split(",")):
             smooth = sm if sm == "auto" else float(sm)
-            enc = TargetEncoder(target_type="binary", smooth=smooth, cv=a.te_cv, random_state=0)
+            enc = TargetEncoder(target_type="binary", smooth=smooth, cv=a.te_cv, random_state=a.enc_seed)
             suffix = "" if j == 0 else f"_m{sm}"
             pre = ["tej_" if a.joint == "glm" and c.startswith("j_") else "te_" for c in Ktr.columns]
             cols = [f"{p}{c}{suffix}" for p, c in zip(pre, Ktr.columns, strict=True)]
@@ -481,7 +488,7 @@ def main() -> None:
                 E = A if K is None else enc.transform(K).astype("float32")
                 frames[k].append(pd.DataFrame(E, columns=cols))
         if a.hier > 0:
-            H = hier_te(Ktr.iloc[i_tr], y[i_tr], [Ktr.iloc[i_va], Kte, Kog], a.hier, a.te_cv)
+            H = hier_te(Ktr.iloc[i_tr], y[i_tr], [Ktr.iloc[i_va], Kte, Kog], a.hier, a.te_cv, a.enc_seed)
             for k, h in enumerate(H):
                 frames[k].append(h)
         parts = []

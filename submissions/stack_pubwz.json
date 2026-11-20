@@ -1,0 +1,18 @@
+{
+  "method": "fit-free average of logit-ranks: 0.5 stack_pub5 + 0.5 pub_fa_wide_lm_stack, then zones 1-4 (D29)",
+  "parts": [
+    "stack_pub5.csv",
+    "runs/pub_fa_wide_lm_stack/test.npy"
+  ],
+  "weight_pub5": 0.5,
+  "cv": 0.95263,
+  "folds": [
+    0.95188,
+    0.95269,
+    0.9574,
+    0.9529,
+    0.94835
+  ],
+  "vs": "stack_pub5z 0.95254, up 4/5 folds (fold 3 down); weight 0.75 gives 0.95260, also 4/5; 0.25 gives 0.95263, 3/5",
+  "zones": "zones.py: zones 1-4 sent to the bottom (D27)"
+}

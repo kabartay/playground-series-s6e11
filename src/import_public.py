@@ -20,6 +20,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import rankdata
 from sklearn.metrics import roc_auc_score
 
 from common import DATA, RUNS, TARGET, folds, load
@@ -257,6 +258,43 @@ def members() -> list[dict]:
                 note="TabM_D, 1 epoch, in-fold target encoding; per-fold AUCs from the notebook log",
             )
         )
+    # megayak's own target-first GPT-2 (CC0, 2026-11-19, all five folds) and RealMLP (CC0, 2026-11-18,
+    # 8 seeds, last epoch, nothing chosen on the scored fold). No fold file or AUC; both state the shared
+    # split. The LM's OOF holds log-odds but its test file rank fractions, so its OOF becomes ranks too.
+    for ds, name, oof, test, rank, note in (
+        ("s6e11-target-first-lm", "lm", "lm_oof.npy", "lm_test.npy", True, "GPT-2 target-first"),
+        ("s6e11-realmlp-member", "realmlp_8seeds", "mlp_oof.npy", "mlp_test.npy", False, "RealMLP, 8 seeds"),
+    ):
+        d = PUB / f"megayak__{ds}"
+        if d.exists():
+            out.append(
+                dict(
+                    tag="mg",
+                    name=name,
+                    oof=d / oof,
+                    test=d / test,
+                    auc=None,
+                    folds=STATED,
+                    rank_oof=rank,
+                    source=f"megayak/{ds}",
+                    note=note + "; CC0",
+                )
+            )
+    # DavutKursun's XGBoost-on-GLM bag (notebook output, pinned by goodpjw2008, Apache-2.0); ships its folds.
+    d = PUB / "goodpjw2008__s6e11-board-model-pinned-inputs"
+    if d.exists():
+        out.append(
+            dict(
+                tag="dk",
+                name="xgb_glm_bag",
+                oof=(d / "davutkursun_xgb_glm_bag_oof.csv", "pred"),
+                test=(d / "davutkursun_xgb_glm_bag_test.csv", "pred"),
+                auc=0.95069,
+                folds=(d / "davutkursun_xgb_glm_bag_oof.csv", "fold"),
+                source="davutkursun/s6e11-one-model-no-public-inputs (output pinned by goodpjw2008)",
+                note="XGBoost started from a GLM, bagged; Apache-2.0",
+            )
+        )
     return out
 
 
@@ -302,6 +340,8 @@ def main() -> None:
         except (OSError, ValueError, KeyError) as e:
             print(f"  skip {label}: {e}")
             continue
+        if m.get("rank_oof"):
+            oof = (rankdata(oof) - 0.5) / len(oof)
         if oof.shape != (len(tr),) or test.shape != (len(te),):
             print(f"  skip {label}: shapes {oof.shape} {test.shape}")
             continue

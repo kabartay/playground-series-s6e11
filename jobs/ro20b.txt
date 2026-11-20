@@ -1,0 +1,3 @@
+# r20: fintfm 1.0.0 readout as a stack member, part b
+pip install fintfm==1.0.0
+train_readout.py --name r20_fintfm_ro --part b --folds 2,3
