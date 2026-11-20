@@ -22,8 +22,8 @@
 
 ## Our submissions
 
-Final selection (marked on Kaggle 2026-11-19): `stack_pub5z.csv` and `stack_r12z.csv`. Planned change
-(2026-11-20, D29): `stack_pubwz.csv` in place of `stack_pub5z.csv`, to be marked on the website.
+Final selection (marked on Kaggle 2026-11-20): `stack_pubwz.csv` and `stack_pub5z.csv`, the two best files by CV
+(0.95263 and 0.95254). Earlier selection (2026-11-19): `stack_pub5z.csv` and `stack_r12z.csv`.
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |

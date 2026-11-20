@@ -24,6 +24,7 @@ rows added to each training fold (0 = not used).
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
 | stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
 | stack_r12 + zero-fraud zones 1-4 (own models, D27) | 19 | logistic (C=0.1) on 24 OOF, zone rows sent to the bottom | | | 0.95143 | |
+| stack_r12 with r20_glm_tok_enc3 in place of r10_glm_tok (own models, D29) | 20 | logistic (C=0.1) on 24 OOF | | | 0.95140 | |
 | stack of round twelve (own models, D23) | 12 | logistic (C=0.1) on 24 OOF: round eleven + r12_rmlp_emb, r12_rmlp_emb_te | | | 0.95138 | |
 | stack of round eleven (own models, honest boosters, D22) | 11 | logistic (C=0.1) on 22 OOF: round ten with the five r8 boosters swapped for r11 | | | 0.95133 | |
 | stack of round ten (own models) | 10 | logistic (C=0.1) on 22 OOF: round eight + r10_glm_tok | | | 0.95132 | |
@@ -42,6 +43,7 @@ rows added to each training fold (0 = not used).
 | r8_gbc_all_kc | 8 | GLM boost (CatBoost depth 4) | as r8_gb_all_kc | 0 | 0.95090 | 0.0032 |
 | r8_gb_all | 8 | GLM boost (LightGBM) | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95087 | 0.0033 |
 | r11_gbx_all_kc | 11 | GLM boost (XGBoost depth 2), --es inner, not adopted alone (bias check, D22) | as r8_gbx_all_kc | 0 | 0.95087 | |
+| r20_glm_tok_enc3 | 20 | GLM, mean logit of three encoder seeds (D29) | as r10_glm_tok | 0 | 0.95087 | |
 | r10_glm_tok | 10 | spline GLM, adopted (4 of 5 folds) | as r8_glm_all + GPT-2 token keys and 3-digit chunks | 0 | 0.95083 | |
 | r11_gbc_all_kc | 11 | GLM boost (CatBoost depth 4), --es inner, not adopted alone (bias check, D22) | as r8_gbc_all_kc | 0 | 0.95082 | |
 | r11_glm_tok_hier | 11 | spline GLM + hierarchical encoding (m 20), not adopted (1 of 5 folds) | as r10_glm_tok + `--hier 20` | 0 | 0.95080 | |
@@ -947,7 +949,14 @@ solutions (GitHub, read as text) for more. Every test is nested on the shared fo
 The zones alone lift the wide stack on all five folds (0.95257 to 0.95261). Weight 0.5 is the untuned
 default; 0.75 also passes, so the result does not hinge on the weight. The two inputs' test logit-ranks
 correlate at 0.9990. Written as `submissions/stack_pubwz.csv`; it replaces `stack_pub5z` as the CV pick. Public score
-(2026-11-20): 0.95293 against 0.95288 for `stack_pub5z`, +0.00005 (CV +0.00009).
+(2026-11-20): 0.95293 against 0.95288 for `stack_pub5z`, +0.00005 (CV +0.00009). Marked as final picks on 2026-11-20: `stack_pubwz` and `stack_pub5z`.
+
+**Averaging more stacks (not adopted).** Equal-weight logit-rank averages of every subset of `stack_pub5`,
+the wide LM stack, goodpjw2008's wide stack (no LM, 0.95250) and `stack_r12`, each with zones 1-4: none
+beats `stack_pubwz` on more than 2 of 5 folds. The best are pub5 + wide LM + wide stack (0.95263, 2 of 5)
+and wide LM + wide stack (0.95260, 2 of 5). Any average that includes `stack_r12` loses 0.0001-0.0005.
+yashteotia's 278-model wide stack would be a third independently built stack, but its notebook saves only
+test files for it, not out-of-fold scores, so it cannot be checked on our folds and is not used.
 
 **Stacker ideas (`src/stack_ideas.py`, none adopted).**
 
@@ -985,14 +994,22 @@ flag clear hold 13% of frauds but 47% of the fraud-side AUC loss (AUC 0.8988 wit
 scores 0.888-0.898 there. A LightGBM on raw columns started from the stack's logit loses 0.00044 (0 of 5),
 as in D28. Member disagreement does not mark errors. No targeted fix is indicated.
 
-**From the discussions.** Probing the public board, simulated on out-of-fold rows (yashteotia): +0.00027
+**From the discussions.** Public-board noise, measured by yashteotia by rescoring fixed out-of-fold
+predictions on 300 random 60k-row samples: one file moves by about 0.003 (1 SD), the difference of two close
+models by about 0.0003. Probing the public board, simulated on out-of-fold rows (yashteotia): +0.00027
 on 60k "public" rows, -0.00010 on 240k "private" rows, which supports picking by CV. A logistic
 regression fitted on the 20k original rows alone scores 0.934 on train (yashteotia), consistent with the
 GLM-first design (D16-D17). Seven more public banks (TabPFN-3.5 pairs, a digit CNN, TabPack and others)
 are not imported: yashteotia's pool includes them and gains 0.00004 over the wide LM stack, and their
 Kaggle metadata states no licence.
 
-**Still running (results to follow here):** a 3-seed encoder bag of `r10_glm_tok` (`train_gbdt.py
---enc-seed`, new; the encoders' inner split was always seed 0), a GLM convergence check (`--params`
+**Encoder-seed bag (adopted in the own-models track).** `train_gbdt.py --enc-seed` (new) changes the seed
+of the encoders' inner cross-fitting split, which was always 0. `r10_glm_tok` with seeds 1 and 2 scores
+0.95086 and 0.95080 (seed 0: 0.95083); the mean of the three logits, `r20_glm_tok_enc3`, 0.95087. In
+`stack_r12` in place of `r10_glm_tok`: 0.95140 against 0.95138, folds 0.95041 0.95194 0.95628 0.95242
+0.94630, 4 of 5 up (fold 0 down). Kept beside it instead: 0.95129. The gain is +0.00002 and the own-models
+stack is no longer a final pick, so no file was submitted.
+
+**Still running (results to follow here):** a GLM convergence check (`--params`
 `solver` and `tol`, new; lbfgs at sklearn's default tolerance stops after 39-48 iterations), and the FinTFM
 1.0.0 linear readout as a member (`src/train_readout.py`, three Kaggle CPU kernels).
