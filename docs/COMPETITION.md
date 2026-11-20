@@ -26,6 +26,8 @@ Final selection (marked on Kaggle 2026-11-19): `stack_pub5z.csv` and `stack_r12z
 
 | Date | File | Public | Validation | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-20 | honest-CV notebook, Kaggle version 1 | 0.95155 | 0.95135 (nested 5-fold CV, local check of the same six runs) | public notebook: six own models, nested stack + zones; submitted from the notebook, not a final pick |
+| 2026-11-20 | FinTFM starter, Kaggle version 3 | 0.94105 | 0.9296 (single 20,000-row holdout) | fintfm 1.0.0 linear readout fitted on the whole pool; up from 0.91516 for Kaggle version 2 (in-context, partitioned + balanced) |
 | 2026-11-19 | `stack_pub5z.csv` | 0.95288 | 0.95254 (nested 5-fold CV) | `stack_pub5` + zero-fraud zones (D27); best public score, final pick |
 | 2026-11-19 | `stack_r12z.csv` | 0.95164 | 0.95143 (nested 5-fold CV) | `stack_r12` + zero-fraud zones (D27); best own-model public score, final pick |
 | 2026-11-19 | `stack_r16.csv` | 0.95163 | 0.95136 (nested 5-fold CV) | `stack_r12` with the all-rows RealMLPs (D23); public check only, not a final pick |

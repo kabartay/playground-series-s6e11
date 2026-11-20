@@ -55,3 +55,7 @@ beforehand on Kaggle CPU (`src/probe_readout.py`, jobs ro1 and ro2) on the same 
 
 The readout represents at most 100,000 rows itself, so the fit cost is flat beyond that. Smoke copy
 (`SMOKE = True`, private kernel s6e11-ftfm-v2-smoke) ran every section end to end in 0.3 h.
+
+Kaggle version 3 (2026-11-20, 2.2 h on CPU): sections 3-8 reproduced version 1 (balanced 2,000 rows 0.9063,
+LightGBM 0.9356); the readout scored 0.9296 on the holdout (AP 0.4531) and was chosen for the submission,
+which took 3,149 s for 299,984 rows. Public score 0.94105, against 0.91516 for Kaggle version 2.
