@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-20. The competition closes 2026-11-30 23:59 UTC. Round twenty (D29) is still running, so one result is marked "pending (D29)". This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-20. The competition closes 2026-11-30 23:59 UTC. Round twenty (D29) is complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -158,7 +158,7 @@ Pooled artefacts and encodings at three weights are complementary: +0.00038 toge
 | MLP | 64-32 on the spline GLM design | Weak alone, small stack weight (D13) |
 | Own GPT-2 language model | Target-first: the label first, 24 fragments in a fresh random order each time. A row is scored with "yes" and with "no", and the log-likelihood difference is the log-odds. After Chris Deotte's S6E10 write-up and Borisov et al. (GReaT), own code | Not adopted (D24, D26) |
 | Public members | OOF banks from public datasets, including GPT-2 and compact LMs, TabPFN, RealMLP, TabM, GLMs, boosters | Second track (D15 to D21) |
-| FinTFM readout | fintfm 1.0.0 linear readout, a pretrained in-context transformer with a fitted linear head (the owner's own package) | pending (D29) |
+| FinTFM readout | fintfm 1.0.0 linear readout, a pretrained in-context transformer with a fitted linear head (the owner's own package) | CV 0.94054; not adopted (D29) |
 
 Why a GLM first: the trees already recover numeric shapes, but the GLM adds smooth per-column shapes and the exact-value encodings, and the trees then correct it (D13, D16). A logistic regression fitted on the 20,000 original rows alone scores 0.934 on train (yashteotia, D29), consistent with this design.
 
@@ -369,11 +369,15 @@ Leaves with no fraud in the four training folds still hold 43 to 615 frauds on t
 
 Segment AUCs of `stack_r12` are flat (0.93 to 0.96) and calibration by segment is close (No Authentication 6.41% predicted against 6.45% actual). The 433,210 rows with every risk flag clear hold 13% of the frauds but 47% of the fraud-side AUC loss (AUC 0.8988 within them); every member scores 0.888 to 0.898 there. Member disagreement does not mark errors. No targeted fix is indicated (D29).
 
-### 6.8 Pending (D29)
+### 6.8 FinTFM readout member (D29)
 
-| Item | Status |
-| --- | --- |
-| FinTFM 1.0.0 linear readout as a stack member (`src/train_readout.py`, three Kaggle CPU kernels) | pending (D29) |
+| Run | CV AUC | Against | Folds up | Verdict |
+| --- | --- | --- | --- | --- |
+| `r20_fintfm_ro` alone (fintfm 1.0.0 linear readout, entry defaults, three Kaggle CPU kernels) | 0.94054 | | | |
+| stack_r12 + readout (C=0.1) | 0.95135 | 0.95138 | 3 of 5 | not adopted |
+| stack_pub5 + readout (C=0.01) | 0.95245 | 0.95249 | 1 of 5 | not adopted |
+
+The readout is 0.010 below our best single models and takes a small negative stack weight in both tracks (-0.08 and -0.02), so the stack finds nothing in it to use. With stack_pub5 not improved, the stack_pubwz average was not retested.
 
 ## 7. Discussion
 
@@ -487,7 +491,6 @@ Competition data: subject to the competition rules, not included in the repo. Or
 
 | Idea | Why not tried or not finished |
 | --- | --- |
-| FinTFM readout member | pending (D29) |
 | TabM tuned on a GPU | CPU took 6.7 h for fold 0 and hit the 12-hour limit; the Kaggle GPU quota belongs to another project (D23, D24) |
 | A larger or longer GPT-2 member | would cost several times the $9.20 of the three-epoch run, for a member still 0.0018 to 0.0032 below our RealMLP (D26) |
 | FinTFM fine-tuned or partitioned-context probe on RunPod | prepared and paused by the owner to save money (D24) |

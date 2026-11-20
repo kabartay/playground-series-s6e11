@@ -19,6 +19,7 @@ rows added to each training fold (0 = not used).
 | stack_pub5 + 5 new public members (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 27 OOF | | | 0.95250 | |
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
 | stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
+| stack_pub5 + r20_fintfm_ro (D29) | 20 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted | | | 0.95245 | |
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
 | stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
@@ -26,6 +27,7 @@ rows added to each training fold (0 = not used).
 | stack_r12 + zero-fraud zones 1-4 (own models, D27) | 19 | logistic (C=0.1) on 24 OOF, zone rows sent to the bottom | | | 0.95143 | |
 | stack_r12 with r20_glm_tok_enc3 in place of r10_glm_tok (own models, D29) | 20 | logistic (C=0.1) on 24 OOF | | | 0.95140 | |
 | stack of round twelve (own models, D23) | 12 | logistic (C=0.1) on 24 OOF: round eleven + r12_rmlp_emb, r12_rmlp_emb_te | | | 0.95138 | |
+| stack_r12 + r20_fintfm_ro (own models, D29) | 20 | logistic (C=0.1) on 25 OOF; up on 3 of 5 folds, not adopted | | | 0.95135 | |
 | stack of round eleven (own models, honest boosters, D22) | 11 | logistic (C=0.1) on 22 OOF: round ten with the five r8 boosters swapped for r11 | | | 0.95133 | |
 | stack of round ten (own models) | 10 | logistic (C=0.1) on 22 OOF: round eight + r10_glm_tok | | | 0.95132 | |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
@@ -123,6 +125,7 @@ rows added to each training fold (0 = not used).
 | lgb_ogmodel_o1 | 1 | LightGBM, 31 leaves | + original-only model prediction | 1 | 0.94564 | 0.0037 |
 | r13_tabm_emb | 13 | TabM (pytabkit, CPU), stopped at the 12 h kernel limit after fold 0; not adopted | as r12_rmlp_emb | 0 | fold 0 only: 0.93680 | |
 | r14_gpt2 | 14 | own target-first GPT-2 (RunPod A40, one epoch, 2 OOF orders); stack weight about 0, not adopted | rows as text | 0 | 0.94396 | 0.0037 |
+| r20_fintfm_ro | 20 | fintfm 1.0.0 linear readout, entry defaults (three Kaggle CPU kernels, folds merged); not adopted | raw columns | 0 | 0.94054 | 0.0033 |
 | r18_gpt2_e3 | 18 | own target-first GPT-2 (RunPod A40, three epochs, 4 OOF orders, 2 test orders); stack weight 0.18 but stack CV lower, not adopted | rows as text | 0 | 0.94717 | 0.0035 |
 
 Round four (D11) is running.
@@ -1016,5 +1019,9 @@ and a public notebook reported a higher GLM with a tighter solver. On fold 0 of 
 iterations (54 s against 123 s), and both score 0.94957, the same as the default run (47 iterations). Our
 GLM was already converged for ranking; newton-cholesky is only faster.
 
-**Still running (results to follow here):** the FinTFM
-1.0.0 linear readout as a member (`src/train_readout.py`, three Kaggle CPU kernels).
+**FinTFM readout member (null).** fintfm 1.0.0 `LinearReadoutModel` with entry defaults
+(`src/train_readout.py`), run as three Kaggle CPU kernels (folds 0-1, 2-3, 4 and test) and merged:
+`r20_fintfm_ro` CV 0.94054, folds [0.93932, 0.94210, 0.94552, 0.94061, 0.93547]. In the own-models stack
+(C=0.1) it gives 0.95135 against 0.95138, up on 3 of 5 folds (folds 0 and 4 down), weight -0.08. In the
+public-members stack (C=0.01) it gives 0.95245 against 0.95249, up on 1 of 5 folds, weight -0.02. Not
+adopted; with stack_pub5 not improved, the stack_pubwz average was not retested.
