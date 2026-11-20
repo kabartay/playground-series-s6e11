@@ -387,6 +387,11 @@ kept only if the stack improves on at least 4 of the 5 folds. Details and every 
 | A residual LightGBM on raw features, started from the stack | stops after 1 to 7 rounds; 0.95137 |
 | The 20,000 original rows added to training | LightGBM -0.0001 (0.94680 against 0.94690) |
 | Boosters early-stopped on the scored fold | CV inflated by 0.00004 to 0.00009 per booster |
+| FinTFM 1.0.0 linear readout (a pretrained tabular transformer), out-of-fold on the same folds | 0.94054 alone; stack 0.95135, 3 of 5 folds up, small negative weight |
+| Smarter stackers: pairwise products, one stacker per segment, rank-Gaussian or disagreement features | 0.95091 to 0.95127, all below the plain logistic stack |
+| Zero-fraud zones found by a shallow tree instead of the hand rules of section 8 | 0.93214 to 0.95015, 0 of 5 folds up |
+| Three target-encoder seeds for the token GLM, averaged | stack 0.95140, 4 of 5 folds up but only +0.00002 |
+| The GLMs solved to a 1,000 times tighter tolerance | the same fold AUC (0.94957) as the default |
 
 The pattern: once the stack has a GLM, a GLM boost and a network, a new member has to see something none of
 them sees. More of the same, or a stronger version of the same, does not move it.

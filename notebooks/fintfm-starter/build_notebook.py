@@ -481,10 +481,15 @@ What this notebook shows, in general terms (the numbers are in the table above):
 4. **The useful question is complementarity**: section 10 measures whether FinTFM's different view of the
    data adds anything to a tree model.
 
+**The readout as a stack member, measured afterwards.** We ran this readout out-of-fold on all
+700,000 training rows (the same 5 folds as our trees, three Kaggle CPU sessions): 0.94054 ROC-AUC. Added
+to a 24-model stack of GLMs, boosters and RealMLPs (0.95138), it gave 0.95135 and took a small negative
+weight; added to a stack with a strong public language-model member (0.95249), 0.95245. On this table the
+trees and GLMs already hold what the readout sees. Details: [docs/DESIGN.md, D29](https://github.com/kabartay/playground-series-s6e11/blob/main/docs/DESIGN.md).
+
 **Where to go from here:** FinTFM's development ended with 1.0.0, so these are things to try with the
-released package: the readout as one member of a stacked ensemble, with out-of-fold predictions on the
-same folds as the trees; the readout with more ensemble members on a GPU session; and
-`context_positive_floor` to fix the number of fraud rows in an in-context run.
+released package: the readout with more ensemble members on a GPU session; and `context_positive_floor`
+to fix the number of fraud rows in an in-context run.
 
 *FinTFM's code and measurement log are at [github.com/kabartay/fintfm](https://github.com/kabartay/fintfm);
 the log records every result, including the negative ones. Questions and comments welcome.*
