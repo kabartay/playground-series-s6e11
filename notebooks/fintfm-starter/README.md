@@ -59,3 +59,7 @@ The readout represents at most 100,000 rows itself, so the fit cost is flat beyo
 Kaggle version 3 (2026-11-20, 2.2 h on CPU): sections 3-8 reproduced version 1 (balanced 2,000 rows 0.9063,
 LightGBM 0.9356); the readout scored 0.9296 on the holdout (AP 0.4531) and was chosen for the submission,
 which took 3,149 s for 299,984 rows. Public score 0.94105, against 0.91516 for Kaggle version 2.
+
+Kaggle version 4 (2026-11-20, 2.5 h on CPU): text-only change (the readout measured as a stack member, from
+DESIGN D29, replaces it in "where to go from here"). Every number reproduced version 3: balanced 2,000 rows 0.9063,
+LightGBM 0.9356, readout 0.9296 on the holdout.
