@@ -1085,3 +1085,11 @@ Diversity Ensemble* (the D27 pack, Nelder-Mead weights per fold, not nested); ri
 Optimization* (public-board extrapolation, score = L(leader) + 2 (L(leader) - L(probe)), simulated figures);
 DavutKursun's *Deeper Trees Lose* (XGBoost lossguide on our folds: encoded features best at 2 leaves, 0.95001
 mean fold AUC; 64 leaves 0.0014 lower on 5 of 5 folds; consistent with D10, D11).
+
+**Adversarial validation (null: no shift).** New `src/adv_val.py`: LightGBM (63 leaves, 400 rounds), 5-fold
+CV over train + test rows, predicting "row is from test.csv". Adversarial AUC **0.50013** on the 24 raw columns
+and **0.50071** on the 51 `art` columns (raw plus value counts): train and test are drawn alike. Importance
+weights p/(1-p) range 0.41 to 2.27 with an effective sample size of 696k of 700k; weighted OOF AUC moves by
+0.00003 to 0.00008, the same for every model (stack_pub5 0.95249 -> 0.95246, wide LM stack 0.95257 -> 0.95254,
+r11_gb_all_kc 0.95092 -> 0.95089 on raw), so model order is unchanged. CV is a fair stand-in for the private
+board, and neither row reweighting nor pseudo-labelling has a shift to correct.
