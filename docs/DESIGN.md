@@ -1168,7 +1168,7 @@ test was fixed before any result was seen.
 
 OOF rank correlations between the four stacks are 0.9957 to 0.9984; on test 0.9915 to 0.9990, so the stacks
 differ more on test than OOF, and averaging them cuts that variance. The best secondary mixes (0.95276) were
-picked after looking and are not used. Written as `submissions/stack_pub4wz.csv` (16,730 test rows in zones),
-not submitted. Two of the four inputs are other people's stacks of public members whose recipes were chosen on
+picked after looking and are not used. Written as `submissions/stack_pub4wz.csv` (16,730 test rows in zones);
+public 0.95325 (submitted 2026-11-21 on the owner's yes) against 0.95293 for `stack_pubwz`. Two of the four inputs are other people's stacks of public members whose recipes were chosen on
 these folds, which the threats-to-validity note in FINDINGS 8 covers.
 
