@@ -17,11 +17,11 @@ The generator recombines values from a 20,000-row original dataset, so exact val
 | --- | --- | --- | --- |
 | Highest single model, `r9_gb_all_kc_s3` (GLM boost, LightGBM, 3 seeds) | 0.95098 | not submitted alone | D18 |
 | Own models only: `stack_r12z` (24 models + zero-fraud zones; a final pick until 2026-11-20) | 0.95143 | 0.95164 | D27 |
-| Final pick, with public members: `stack_pub5z` | 0.95254 | 0.95288 | D27 |
+| With public members: `stack_pub5z` (a final pick until 2026-11-21) | 0.95254 | 0.95288 | D27 |
 | Final pick: `stack_pubwz` (fit-free average of `stack_pub5` and the wide LM stack, + zones) | 0.95263 | 0.95293 | D29, COMPETITION.md |
-| Highest CV: `stack_pub4wz` (fit-free mean of four nested stacks, + zones; 2026-11-21) | 0.95273 | 0.95325 | D31, COMPETITION.md |
+| Final pick: `stack_pub4wz` (fit-free mean of four nested stacks, + zones) | 0.95273 | 0.95325 | D31, COMPETITION.md |
 
-The final selection marked on Kaggle on 2026-11-20 is `stack_pubwz` and `stack_pub5z`, the two best files by CV. The earlier selection (2026-11-19) was `stack_pub5z` and `stack_r12z` (COMPETITION.md).
+The final selection marked on Kaggle on 2026-11-21 is `stack_pub4wz` and `stack_pubwz`, the two best files by CV. Earlier selections were `stack_pubwz` and `stack_pub5z` (2026-11-20) and `stack_pub5z` and `stack_r12z` (2026-11-19) (COMPETITION.md).
 
 Main lessons:
 
@@ -248,9 +248,9 @@ Stacks with public members (nested CV):
 
 | File | Date | CV (nested, 5-fold) | Public | Note |
 | --- | --- | --- | --- | --- |
-| `stack_pub4wz.csv` | 2026-11-21 | 0.95273 | 0.95325 | D31 |
+| `stack_pub4wz.csv` | 2026-11-21 | 0.95273 | 0.95325 | D31; final pick |
 | `stack_pubwz.csv` | 2026-11-20 | 0.95263 | 0.95293 | D29; final pick |
-| `stack_pub5z.csv` | 2026-11-19 | 0.95254 | 0.95288 | D27; final pick |
+| `stack_pub5z.csv` | 2026-11-19 | 0.95254 | 0.95288 | D27; final pick until 2026-11-21 |
 | `stack_pub5.csv` | 2026-11-17 | 0.95249 | 0.95284 | D21 |
 | `stack_pub4.csv` | 2026-11-17 | 0.95225 | 0.95219 | D20 |
 | `stack_pub3.csv` | 2026-11-17 | 0.95204 | 0.95190 | D19; rank 596 of 2,098 at the time |
