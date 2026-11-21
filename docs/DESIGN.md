@@ -1172,3 +1172,9 @@ picked after looking and are not used. Written as `submissions/stack_pub4wz.csv`
 public 0.95325 (submitted 2026-11-21 on the owner's yes) against 0.95293 for `stack_pubwz`. Two of the four inputs are other people's stacks of public members whose recipes were chosen on
 these folds, which the threats-to-validity note in FINDINGS 8 covers.
 
+**No fifth stack qualifies.** Rule fixed before looking at any average: add every stack that is nested on our
+folds, publishes OOF and test scores and scores at least 0.9525 alone, and average all of them. Checked
+2026-11-21: zohrab's `wide_lm_stack_nested.npy` is a copy of goodpjw2008's wide LM stack (already in);
+alexchilton's wide stacks publish test files only; yashteotia's `oof_predictions.csv` holds own models and a
+blend of them, below the bar; megayak's notebook publishes members, not its stack. The four-stack mean stands.
+
