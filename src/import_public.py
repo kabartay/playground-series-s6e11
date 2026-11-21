@@ -295,7 +295,60 @@ def members() -> list[dict]:
                 note="XGBoost started from a GLM, bagged; Apache-2.0",
             )
         )
+    # Target-first GPT-2 "Storyteller" members trained on a Kaggle TPU (notebook outputs, Apache-2.0). The
+    # val_idx files give the split, and each fold's AUC must match the author's summary.
+    for tag, ds, src in (
+        ("st", "mojjeed__gpt-2-storyteller-on-a-tpu-v5e-8", "mojjeed/gpt-2-storyteller-on-a-tpu-v5e-8"),
+        (
+            "st",
+            "davutkursun__s6e11-gpt-2-storyteller-on-tpu-seed-2027-8-ep",
+            "davutkursun/s6e11-gpt-2-storyteller-on-tpu-seed-2027-8-ep",
+        ),
+    ):
+        d = PUB / ds
+        if (d / "k9_summary.json").exists():
+            oof, test, fold, fold_aucs = storyteller_arrays(d)
+            out.append(
+                dict(
+                    tag=tag,
+                    name=ds.split("__")[0],
+                    oof=oof,
+                    test=test,
+                    auc=None,
+                    folds=fold,
+                    fold_aucs=fold_aucs,
+                    source=src,
+                    note="target-first GPT-2 on TPU, mean LLR over field orders; Apache-2.0 notebook output",
+                )
+            )
     return out
+
+
+def storyteller_arrays(d: Path) -> tuple[Path, Path, Path, list[float]]:
+    """Combine a target-first GPT-2 "Storyteller" kernel output into whole-file arrays.
+
+    Each fold ships ``parts/gpt2tf_f<k>_{oof_scores,test_scores,val_idx}.npy``: log-likelihoods of shape
+    (rows, orders, 2) for the two label tokens under several random field orders. The score is the mean over
+    orders of the log-likelihood ratio (column 1 minus column 0), the summary's ``auc_mean_llr``; test scores
+    are averaged over the five fold models. Writes ``oof.npy``, ``test.npy`` and ``folds.npy`` next to
+    ``parts/`` (derived data, never committed) and returns their paths with the summary's per-fold AUCs.
+    """
+    out = d / "oof.npy", d / "test.npy", d / "folds.npy"
+    summary = json.loads((d / "k9_summary.json").read_text())
+    fold_aucs = [float(summary["folds"][str(k)]["auc_mean_llr"]) for k in range(5)]
+    if not all(p.exists() for p in out):
+        idx = [np.load(d / f"parts/gpt2tf_f{k}_val_idx.npy", allow_pickle=False) for k in range(5)]
+        n = sum(len(i) for i in idx)
+        oof, fold, test = np.full(n, np.nan), np.full(n, -1, dtype=np.int8), 0.0
+        for k in range(5):
+            ll = np.load(d / f"parts/gpt2tf_f{k}_oof_scores.npy", allow_pickle=False).astype("float64")
+            oof[idx[k]] = (ll[..., 1] - ll[..., 0]).mean(axis=1)
+            fold[idx[k]] = k
+            lt = np.load(d / f"parts/gpt2tf_f{k}_test_scores.npy", allow_pickle=False).astype("float64")
+            test = test + (lt[..., 1] - lt[..., 0]).mean(axis=1) / 5
+        for p, a in zip(out, (oof, test, fold), strict=True):
+            np.save(p, a)
+    return (*out, fold_aucs)
 
 
 def load_array(src: Path | tuple[Path, str] | tuple[Path, int]) -> np.ndarray:

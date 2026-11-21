@@ -20,6 +20,7 @@ rows added to each training fold (0 = not used).
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
 | stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
 | stack_pub5 + r20_fintfm_ro (D29) | 20 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted | | | 0.95245 | |
+| stack_pub5 + both Storyteller GPT-2 members (D30) | 21 | logistic (C=0.01) on 24 OOF; up on 2 of 5 folds, not adopted | | | 0.95240 | |
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
 | stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
@@ -126,6 +127,9 @@ rows added to each training fold (0 = not used).
 | r13_tabm_emb | 13 | TabM (pytabkit, CPU), stopped at the 12 h kernel limit after fold 0; not adopted | as r12_rmlp_emb | 0 | fold 0 only: 0.93680 | |
 | r14_gpt2 | 14 | own target-first GPT-2 (RunPod A40, one epoch, 2 OOF orders); stack weight about 0, not adopted | rows as text | 0 | 0.94396 | 0.0037 |
 | r20_fintfm_ro | 20 | fintfm 1.0.0 linear readout, entry defaults (three Kaggle CPU kernels, folds merged); not adopted | raw columns | 0 | 0.94054 | 0.0033 |
+| lc_0.25 | 21 | r11_gb_all_kc settings on 25% of each training fold, folds 0-1 only (learning curve, D30) | as r11_gb_all_kc | 0 | 0.94691 (2 folds) | |
+| lc_0.5 | 21 | r11_gb_all_kc settings on 50% of each training fold, folds 0-1 only (learning curve, D30) | as r11_gb_all_kc | 0 | 0.94896 (2 folds) | |
+| lc_0.75 | 21 | r11_gb_all_kc settings on 75% of each training fold, folds 0-1 only (learning curve, D30) | as r11_gb_all_kc | 0 | 0.94993 (2 folds) | |
 | r18_gpt2_e3 | 18 | own target-first GPT-2 (RunPod A40, three epochs, 4 OOF orders, 2 test orders); stack weight 0.18 but stack CV lower, not adopted | rows as text | 0 | 0.94717 | 0.0035 |
 
 Round four (D11) is running.
@@ -1039,3 +1043,45 @@ and its zones are inside our zones 1-4. Nothing new to test on our folds.
 (C=0.1) it gives 0.95135 against 0.95138, up on 3 of 5 folds (folds 0 and 4 down), weight -0.08. In the
 public-members stack (C=0.01) it gives 0.95245 against 0.95249, up on 1 of 5 folds, weight -0.02. Not
 adopted; with stack_pub5 not improved, the stack_pubwz average was not retested.
+
+## D30. Round twenty-one: Storyteller GPT-2 members, a learning curve, adversarial validation, a ranking objective
+
+**Storyteller GPT-2 members (null).** Two target-first GPT-2 runs trained on a Kaggle TPU, found through
+DavutKursun's *The 0.9526 Wall* notebook (read as text): mojjeed's *GPT-2 Storyteller on a TPU v5e-8* (5 epochs,
+16 field orders per OOF row) and DavutKursun's seed-2027 rerun (8 epochs, 32 orders). Their kernel outputs ship
+per-fold log-likelihoods of the two label tokens, shape (rows, orders, 2), plus validation indices.
+`src/import_public.py` (new `storyteller_arrays`) scores each row by the mean log-likelihood ratio over orders,
+averages the five fold models on test, and checks that the val_idx split equals ours and that every fold's AUC
+matches the author's summary: `pub_st_mojjeed` 0.95003, `pub_st_davutkursun` 0.95020. Rank correlation with
+the GPT-2 members already imported is 0.976-0.981 (masaya, goodpjw2008 seed 2026, megayak), and 0.97 with the
+wide LM stack.
+
+| Added to stack_pub5 (C=0.01, 0.95249) | CV AUC | Folds | Folds up | Weight |
+| --- | --- | --- | --- | --- |
+| both | 0.95240 | 0.95158 0.95248 0.95737 0.95275 0.94808 | 2 | 0.16, 0.17 |
+| DavutKursun's only | 0.95242 | 0.95162 0.95246 0.95737 0.95268 0.94826 | 2 | 0.31 |
+| mojjeed's only | 0.95241 | 0.95150 0.95251 0.95747 0.95284 0.94794 | 2 | 0.30 |
+
+In the stack_pubwz average with fixed weights (no fit; zones 1-4): a third equal share loses 11.6 to 12.1 points
+(2 of 5 folds up); 0.9 pubwz + 0.1 Storyteller gains 2.4 points but on 3 of 5 folds only; 0.2 loses 0.4. Not
+adopted: the stacker gives them weight, but the language-model signal is already in the wide LM stack.
+
+**Learning curve of the best booster (pseudo-labelling bound).** New `train_gbdt.py --train-frac`: each fold
+trains on a stratified fraction of its training rows (encoders and GLM start included) and is scored on the full
+validation fold. `r11_gb_all_kc` settings, folds 0 and 1:
+
+| Training rows per fold | 140k (25%) | 280k (50%) | 420k (75%) | 560k (all) |
+| --- | --- | --- | --- | --- |
+| mean fold AUC | 0.94691 | 0.94896 | 0.94993 | 0.95066 |
+
+The curve still rises: the last 140k labelled rows add 0.0007, and doubling from 280k adds 0.0017. That bounds
+pseudo-labelling from above: the 300k test rows with their true labels might be worth about +0.001 to one
+booster, and pseudo-labels carry no label information beyond the model that made them. Not run (owner's choice
+of next steps, 2026-11-21). Inner early stopping is noisy at small fractions (2 to 3 rounds chosen on some folds).
+
+**Four more public notebooks, read as text (nothing to test).** mzishran's *Ranking Credit Card Fraud with ML*
+(3 folds, seed 1106, no CV figure; its encodings are our D9-D16 recipe); Weni Mohamed's *RealMLP + TabM + BPE
+Diversity Ensemble* (the D27 pack, Nelder-Mead weights per fold, not nested); rishabhbafnaiiitd's *Gram-Schmidt
+Optimization* (public-board extrapolation, score = L(leader) + 2 (L(leader) - L(probe)), simulated figures);
+DavutKursun's *Deeper Trees Lose* (XGBoost lossguide on our folds: encoded features best at 2 leaves, 0.95001
+mean fold AUC; 64 leaves 0.0014 lower on 5 of 5 folds; consistent with D10, D11).

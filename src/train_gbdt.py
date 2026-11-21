@@ -433,6 +433,13 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, default=1, help="models per fold with different seeds, averaged")
     ap.add_argument("--seed0", type=int, default=0, help="first seed; seeds run seed0 .. seed0 + seeds - 1")
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves nothing")
+    ap.add_argument(
+        "--train-frac",
+        type=float,
+        default=1.0,
+        help="learning curve: train each fold on this stratified fraction of its training rows, score on the"
+        " full validation fold; saves nothing below 1",
+    )
     a = ap.parse_args()
     import json
 
@@ -502,6 +509,11 @@ def main() -> None:
     t0 = time.time()
     fl = folds(y)[: a.folds]
     for k, (i_tr, i_va) in enumerate(fl):
+        if a.train_frac < 1:
+            from sklearn.model_selection import train_test_split
+
+            sub = train_test_split(i_tr, train_size=a.train_frac, stratify=y[i_tr], random_state=k)[0]
+            i_tr = np.sort(sub)
         Xa, Xva, Xte_k, Xog_k = add_te(i_tr, i_va)
         ya = y[i_tr]
         wa = np.ones(len(i_tr))
@@ -540,7 +552,7 @@ def main() -> None:
         f"{a.name}: CV {cv:.5f}  folds {np.round(scores, 5).tolist()}  "
         f"mean {np.mean(scores):.5f} sd {np.std(scores):.5f}"
     )
-    if a.folds == 5 and not a.rows:
+    if a.folds == 5 and not a.rows and a.train_frac == 1:
         save_run(
             a.name,
             oof,
