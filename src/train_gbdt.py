@@ -235,6 +235,11 @@ def fit_predict(
         if n_iter is not None:
             p.update(n_estimators=n_iter, early_stopping_rounds=None)
         m = xgb.XGBClassifier(**p)
+        if str(p.get("objective", "")).startswith("rank:"):
+            # Ranking objectives take one weight per query group (here the whole fold is one group).
+            if wtr is not None and not np.all(wtr == 1):
+                raise SystemExit("ranking objectives need unit weights (--orig 0)")
+            wtr = None
         if n_iter is None:
             extra = {} if init is None else {"base_margin": init[0], "base_margin_eval_set": [init[1]]}
             m.fit(Xtr, ytr, sample_weight=wtr, eval_set=[(Xva, yva)], verbose=False, **extra)
