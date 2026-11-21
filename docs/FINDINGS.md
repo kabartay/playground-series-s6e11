@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-21. The competition closes 2026-11-30 23:59 UTC. Rounds twenty (D29) and twenty-one (D30) are complete except one Kaggle kernel (a ranking-objective booster, marked pending). This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-21. The competition closes 2026-11-30 23:59 UTC. Rounds twenty (D29) and twenty-one (D30) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -524,4 +524,4 @@ Competition data: subject to the competition rules, not included in the repo. Or
 | XGBoost stumps or one-column-per-tree boosters on the GLM-boost features | from DavutKursun's *Deeper Trees Lose* (stumps 0.95001 mean fold AUC on encoded features, our folds); low expected value: our depth-2 and 4-leaf boosters already sit at 0.9505-0.9511 (D30) |
 | RealMLP minus TabM logit difference as a stack column | idea from a Gram-Schmidt notebook whose figures for it are simulated; no evidence it carries signal (D30) |
 | Pseudo-labelling | not run. Adversarial validation finds no shift to correct (D30), and a learning curve bounds the gain: on folds 0 and 1 the best booster scores 0.94691 / 0.94896 / 0.94993 / 0.95066 at 140k / 280k / 420k / 560k training rows, so even the 300k test rows with true labels might add about 0.001 to one booster, and pseudo-labels carry no label information beyond the model that made them (D30) |
-| Pairwise ranking objective (XGBoost `rank:pairwise`, GLM start) | pending (D30): Kaggle kernel r21rank |
+| Pairwise ranking objective (XGBoost `rank:pairwise`, GLM start) | run, null (D30): fold AUCs level with the logloss booster; stack_pub5 0.95246, up on 1 of 5 folds |

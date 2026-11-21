@@ -19,6 +19,7 @@ rows added to each training fold (0 = not used).
 | stack_pub5 + 5 new public members (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 27 OOF | | | 0.95250 | |
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
 | stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
+| stack_pub5 + r21_gbx_rank_p1 (D30) | 21 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted (rank-normalised p1n 0.95235, p8n 0.95230) | | | 0.95246 | |
 | stack_pub5 + r20_fintfm_ro (D29) | 20 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted | | | 0.95245 | |
 | stack_pub5 + both Storyteller GPT-2 members (D30) | 21 | logistic (C=0.01) on 24 OOF; up on 2 of 5 folds, not adopted | | | 0.95240 | |
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
@@ -29,6 +30,7 @@ rows added to each training fold (0 = not used).
 | stack_r12 with r20_glm_tok_enc3 in place of r10_glm_tok (own models, D29) | 20 | logistic (C=0.1) on 24 OOF | | | 0.95140 | |
 | stack of round twelve (own models, D23) | 12 | logistic (C=0.1) on 24 OOF: round eleven + r12_rmlp_emb, r12_rmlp_emb_te | | | 0.95138 | |
 | stack_r12 + r20_fintfm_ro (own models, D29) | 20 | logistic (C=0.1) on 25 OOF; up on 3 of 5 folds, not adopted | | | 0.95135 | |
+| stack_r12 + r21_gbx_rank_p1n or p8n (own models, D30) | 21 | logistic (C=0.1) on 25 OOF; not adopted | | | 0.95134 | |
 | stack of round eleven (own models, honest boosters, D22) | 11 | logistic (C=0.1) on 22 OOF: round ten with the five r8 boosters swapped for r11 | | | 0.95133 | |
 | stack of round ten (own models) | 10 | logistic (C=0.1) on 22 OOF: round eight + r10_glm_tok | | | 0.95132 | |
 | stack of round eight (own models) | 8 | logistic (C=1) on 21 OOF | | | 0.95114 | |
@@ -58,6 +60,8 @@ rows added to each training fold (0 = not used).
 | stack of round four + r4c | 4 | logistic (C=0.1) on 7 OOF | | | 0.95071 | |
 | r7_gb_m3 | 7 | GLM boost | TE at m 5/20/100 | 0 | 0.95068 | 0.0034 |
 | r7_gb_art | 7 | GLM boost | artefacts + TE | 0 | 0.95066 | 0.0033 |
+| r21_gbx_rank_p1n | 21 | XGBoost depth 2, GLM start, `rank:pairwise` (1 pair per row, Kaggle T4); OOF logit-ranked per fold; not adopted. Raw pooled OOF 0.94604 | as r11_gbx_all_kc | 0 | 0.95066 | 0.0033 |
+| r21_gbx_rank_p8n | 21 | as r21_gbx_rank_p1n, 8 pairs per row; not adopted. Raw pooled OOF 0.94295 | as r11_gbx_all_kc | 0 | 0.95062 | 0.0033 |
 | stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | 0.95066 | |
 | r7_gb_joint | 7 | GLM boost, joint keys in the GLM | raw + TE | 0 | 0.95063 | 0.0034 |
 | stack of round three | 3 | logistic (C=0.01) on 6 OOF | | | 0.95063 | |
@@ -1094,13 +1098,24 @@ weights p/(1-p) range 0.41 to 2.27 with an effective sample size of 696k of 700k
 r11_gb_all_kc 0.95092 -> 0.95089 on raw), so model order is unchanged. CV is a fair stand-in for the private
 board, and neither row reweighting nor pseudo-labelling has a shift to correct.
 
+**Pairwise ranking objective (null).** XGBoost `rank:pairwise` (`lambdarank_pair_method` "mean", 1 or 8
+pairs per row) in place of logloss on the depth-2 GLM-start booster, with the whole fold as one query group, so
+the loss is the AUC's own pairwise form. Run on a Kaggle T4 (kernel `r21rankg`, `jobs/r21_rank_gpu.txt`,
+about 1.5 GPU hours for both; the CPU queue was full, owner's OK). Fold AUCs average 0.95066 (1 pair) and 0.95062
+(8 pairs), level with the logloss booster (r11_gbx_all_kc 0.95092 pooled). A ranking margin has no common scale
+across folds, so the raw pooled OOF falls to 0.94604 and 0.94295; per-fold logit-ranks of the OOF (no labels
+used) give the `p1n` and `p8n` runs. In stack_pub5 (C=0.01, 0.95249): raw p1 0.95246 (up on 1 of 5 folds), p1n
+0.95235, p8n 0.95230. In stack_r12 (C=0.1, 0.95138): 0.95134 for either. Not adopted, so the pubwz test was not
+run. Ranking pairs directly gives the same ordering as logloss here; the boosters' errors are not in how the
+loss weighs pairs.
+
 **Ideas considered in round twenty-one.** Offered to the owner with expected value (2026-11-21); the owner chose
 adversarial validation and the ranking objective.
 
 | Idea | Status |
 | --- | --- |
 | Adversarial validation | run: no shift (above) |
-| XGBoost pairwise ranking objective on the depth-2 GLM-start booster | pending: kernel `r21rank` (`jobs/r21_rank.txt`, 8 and 1 pairs per row) |
+| XGBoost pairwise ranking objective on the depth-2 GLM-start booster | run: null (above; Kaggle GPU kernel `r21rankg`) |
 | Factorization machine (field-aware embeddings, explicit pairwise interactions) | not chosen; new code and 2-3 kernel hours for a model form the additive reading (FINDINGS 7.1) gives little room |
 | Pseudo-labelling with fold-clean pseudo-labels | not chosen; bounded above by the learning curve and with no shift to correct (above) |
 | MinMax tail selection (owner's idea) | run: null (D29) |
