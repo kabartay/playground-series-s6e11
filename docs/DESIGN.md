@@ -1093,3 +1093,16 @@ weights p/(1-p) range 0.41 to 2.27 with an effective sample size of 696k of 700k
 0.00003 to 0.00008, the same for every model (stack_pub5 0.95249 -> 0.95246, wide LM stack 0.95257 -> 0.95254,
 r11_gb_all_kc 0.95092 -> 0.95089 on raw), so model order is unchanged. CV is a fair stand-in for the private
 board, and neither row reweighting nor pseudo-labelling has a shift to correct.
+
+**Ideas considered in round twenty-one.** Offered to the owner with expected value (2026-11-21); the owner chose
+adversarial validation and the ranking objective.
+
+| Idea | Status |
+| --- | --- |
+| Adversarial validation | run: no shift (above) |
+| XGBoost pairwise ranking objective on the depth-2 GLM-start booster | pending: kernel `r21rank` (`jobs/r21_rank.txt`, 8 and 1 pairs per row) |
+| Factorization machine (field-aware embeddings, explicit pairwise interactions) | not chosen; new code and 2-3 kernel hours for a model form the additive reading (FINDINGS 7.1) gives little room |
+| Pseudo-labelling with fold-clean pseudo-labels | not chosen; bounded above by the learning curve and with no shift to correct (above) |
+| MinMax tail selection (owner's idea) | run: null (D29) |
+| XGBoost stumps or one-column-per-tree boosters (DavutKursun) | not run; stumps reach 0.95001, below our boosters |
+| RealMLP minus TabM logit difference as a stack column (Gram-Schmidt notebook) | not run; the notebook's evidence is simulated |

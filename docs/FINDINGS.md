@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-20. The competition closes 2026-11-30 23:59 UTC. Round twenty (D29) is complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-21. The competition closes 2026-11-30 23:59 UTC. Rounds twenty (D29) and twenty-one (D30) are complete except one Kaggle kernel (a ranking-objective booster, marked pending). This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -28,6 +28,8 @@ Main lessons:
 2. Honest validation costs little: early stopping on the scored fold inflated booster CVs by 0.00004 to 0.00009 (D22).
 3. The public files above about 0.954 that we read were tuned on the board, not on labelled rows (D7, D27).
 4. Most of what we tried did not help. Section 6 lists it.
+5. CV is a fair stand-in for the private board: adversarial validation cannot tell train rows from test rows (AUC 0.500, D30).
+6. The best booster is still data-hungry (+0.0007 from its last 140k labelled rows, D30), but without a train/test shift pseudo-labels have nothing new to teach it.
 
 ## 2. Task and data
 
@@ -414,11 +416,11 @@ Our reading is that the label depends on a sum of per-column effects, with the e
 
 ### 7.3 Wide stacks saturate
 
-The public-member stack levelled off near 0.9522 at 173 members (D20) and reaches 0.95249 with the wide stack (D21). From there, nothing we added passed the 4-of-5 rule apart from the zones and the fit-free average. The wide LM stack alone (0.95257) beats `stack_pub5` before zones (0.95249), and a 278-model pool (yashteotia, on our folds) scores 0.95261 (D29).
+The public-member stack levelled off near 0.9522 at 173 members (D20) and reaches 0.95249 with the wide stack (D21). From there, nothing we added passed the 4-of-5 rule apart from the zones and the fit-free average. The wide LM stack alone (0.95257) beats `stack_pub5` before zones (0.95249), and a 278-model pool (yashteotia, on our folds) scores 0.95261 (D29). New members of a family already in the pool do not move it even when strong alone: two TPU-trained GPT-2 members at 0.95003 and 0.95020, rank correlation 0.98 with the GPT-2 members already in, lower `stack_pub5` to 0.95240-0.95242 (D30). Combination rules do not move it either: MinMax tail selection, where the most confident member takes the agreed tails, loses at every threshold (D29).
 
 ### 7.4 An honest ceiling near 0.9526, and a board wall
 
-On our folds the CV-backed results meet at about 0.9526: the wide LM stack 0.95257, the 278-model pool 0.95261, and `stack_pubwz` 0.95263 (D29). The public board sits higher (first place 0.95931 on 2026-11-16, about 0.955 for the top group on 2026-11-19), and the sources we read agree that the top files are public files steered by the board (D7, D21, D27). Our evidence on steering is limited to what others measured: a 0.95388 public file scoring 0.95246 on labelled rows, and a 0.95508 step losing on all five folds (D27). We did not probe the board ourselves. Where the private rows end up is not measured.
+On our folds the CV-backed results meet at about 0.9526: the wide LM stack 0.95257, the 278-model pool 0.95261, and `stack_pubwz` 0.95263 (D29). DavutKursun's 95-member stack (0.95257) and goodpjw2008's 201-member wide stack land there as well; his notebook is titled *The 0.9526 Wall* (D30). The public board sits higher (first place 0.95931 on 2026-11-16, about 0.955 for the top group on 2026-11-19), and the sources we read agree that the top files are public files steered by the board (D7, D21, D27). Our evidence on steering is limited to what others measured: a 0.95388 public file scoring 0.95246 on labelled rows, and a 0.95508 step losing on all five folds (D27). We did not probe the board ourselves. Where the private rows end up is not measured.
 
 ### 7.5 What transfers to real fraud work, and what does not
 
@@ -453,9 +455,13 @@ All scripts run from `src/` with `.venv/bin/python` (Python 3.12, `uv pip instal
 | Train a CV model | `train_gbdt.py --model {lgb,xgb,cat,glm,mlp,realmlp} --fe ... --te ... --keys ... --offset glm --name N` |
 | Honest early stopping | `train_gbdt.py ... --es inner` (D22) |
 | Encoder seed (new) | `train_gbdt.py ... --enc-seed K` (D29) |
+| Learning curve | `train_gbdt.py ... --train-frac F --folds 2` (scores the full validation fold, saves nothing; D30) |
+| Ranking objective | `train_gbdt.py --model xgb ... --params '{"objective":"rank:pairwise",...}'` (unit weights only; D30) |
+| Adversarial validation | `adv_val.py --fe {raw,art} --oof F [F ...]` (D30) |
+| MinMax tail selection | `minmax_tails.py --base F [F ...] --voters F [F ...]` (D29) |
 | Own GPT-2 | `train_lm.py --name N --epochs 3 --train-min 150 --oof-orders 4 --test-orders 2`, launched by `scripts/runpod_lm.py` (D26) |
 | FinTFM probes | `train_fintfm.py`, `probe_readout.py`, `train_readout.py` (D8, D29) |
-| Import public banks | `import_public.py` |
+| Import public banks | `import_public.py` (including the Storyteller kernel outputs, D30) |
 | Stack | `stack.py RUN [RUN ...] [--C c] [--oof-out F] [--out F]` |
 | Zones | `zones.py --oof X.npy --sub X.csv` |
 | Stacker ideas, residual, original match | `stack_ideas.py`, `residual.py`, `research_ogmatch.py` |
@@ -514,5 +520,8 @@ Competition data: subject to the competition rules, not included in the repo. Or
 | Probing the public board to tune the final file | rejected by design: picks are made by CV (D1, D27) |
 | A purpose-built additive model to test section 7.1 | no reason recorded; the spline GLM is the closest we ran (D12) |
 | Private-board result | not available until the competition closes on 2026-11-30 |
+| Factorization machine (field-aware embeddings with explicit pairwise interactions, as in click-through prediction) | proposed in round twenty-one, not chosen by the owner; no model of this form is in the pool, but section 7.1 suggests few interactions to find (D30) |
+| XGBoost stumps or one-column-per-tree boosters on the GLM-boost features | from DavutKursun's *Deeper Trees Lose* (stumps 0.95001 mean fold AUC on encoded features, our folds); low expected value: our depth-2 and 4-leaf boosters already sit at 0.9505-0.9511 (D30) |
+| RealMLP minus TabM logit difference as a stack column | idea from a Gram-Schmidt notebook whose figures for it are simulated; no evidence it carries signal (D30) |
 | Pseudo-labelling | not run. Adversarial validation finds no shift to correct (D30), and a learning curve bounds the gain: on folds 0 and 1 the best booster scores 0.94691 / 0.94896 / 0.94993 / 0.95066 at 140k / 280k / 420k / 560k training rows, so even the 300k test rows with true labels might add about 0.001 to one booster, and pseudo-labels carry no label information beyond the model that made them (D30) |
 | Pairwise ranking objective (XGBoost `rank:pairwise`, GLM start) | pending (D30): Kaggle kernel r21rank |
