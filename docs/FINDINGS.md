@@ -113,6 +113,7 @@ The stacks barely move: 0.95133 with honest boosters against 0.95132 (own models
 - Public-board probing was simulated on out-of-fold rows by yashteotia: +0.00027 on 60,000 "public" rows and -0.00010 on 240,000 "private" rows (D29). That supports picking by CV.
 - The public top files are blends of public files kept when the public score rose (D7, D27). One file scoring 0.95388 public scores 0.95246 on labelled rows (alexchilton), and goodpjw2008 found a 0.95508 step losing on all five folds (D27).
 - Snapshot 2026-11-16: first place 0.95931, then a dense group of about twenty teams at 0.9542 to 0.9544 (COMPETITION.md). By 2026-11-19 the top was about 0.955 (D27).
+- Adversarial validation finds no train/test shift: a LightGBM told to separate train rows from test rows scores AUC 0.50013 on raw columns and 0.50071 with value counts. Reweighting training rows by p/(1-p) moves every model's OOF AUC by 0.00003 to 0.00008, all in the same direction, so model order is unchanged (D30). The private rows are drawn like the training rows, which is what lets CV stand in for the private board.
 
 ### 3.5 Checking public out-of-fold banks
 
@@ -374,6 +375,7 @@ Leaves with no fraud in the four training folds still hold 43 to 615 frauds on t
 | The 173-member stack without busyaprime's 27 boosters | 0.95219 against 0.95225 | D21 |
 | Equal-weight averages of every subset of `stack_pub5`, the wide LM stack, the wide stack without LMs and `stack_r12`, + zones | none beats `stack_pubwz` on more than 2 of 5 folds; best 0.95263 (2 of 5); any subset with `stack_r12` loses 0.0001 to 0.0005 | D29 |
 | yashteotia's 278-model wide stack as a third stack to average | not used: only its test file is published, not its out-of-fold scores | D29 |
+| Two target-first GPT-2 "Storyteller" members trained on a TPU (mojjeed; DavutKursun seed 2027, 8 epochs), 0.95003 and 0.95020 alone, rank correlation 0.98 with the GPT-2 members already in | `stack_pub5` + either or both: 0.95240 to 0.95242, 2 of 5 folds up, weights 0.16 to 0.31; in the `stack_pubwz` average at fixed shares: +2.4 points at 0.1 (3 of 5), -0.4 at 0.2, -11.6 at a third | D30 |
 
 ### 6.7 Error inspection (not a model)
 
@@ -437,7 +439,7 @@ This is judgement. We have not run any of it on real transaction data.
 - **Folds reused across many experiments.** Every model and stack in the results table is scored on the same five folds, and member sets, C and the fit-free weight were chosen on them. D13 estimates a selection effect of the order of 0.00002. The weight 0.5 in `stack_pubwz` is the untuned default; 0.75 also passes, so the result does not hinge on it (D29).
 - **Public members' unknown training details.** Their authors chose recipes and blends on these folds and on the public board, so part of the public-member gain may be selection that the private rows will not repeat (D15, D19). The wide stack's members' training details are not all known to us. `stack_pub4` carries at most 0.00006 of optimism from busyaprime's early-stopped boosters (D21). We checked folds and reported AUCs, not how each member was trained.
 - **Boosters in the earlier rounds.** Round four to eight boosters were early-stopped on the scored fold. The stack effect of the fix was nil (D22), but single-model CVs from those rounds are inflated by 0.00004 to 0.00009.
-- **Private-board shift.** The private leaderboard scores the other 80% of the test rows. Our public scores differ from CV by -0.00019 to +0.00035 (section 3.4). Whether the private score tracks CV is not measured until the competition closes.
+- **Private-board shift.** The private leaderboard scores the other 80% of the test rows. Adversarial validation finds no shift between train and test (AUC 0.500, D30). Our public scores differ from CV by -0.00019 to +0.00035 (section 3.4). Whether the private score tracks CV is not measured until the competition closes.
 - **One generator, one metric.** All results are for one synthetic dataset and ROC-AUC. Calibration was checked by segment in log-loss terms only (D28, D29).
 
 ## 9. Reproducibility
@@ -487,6 +489,7 @@ Competition data: subject to the competition rules, not included in the repo. Or
 | wenimohamed (diverse BPE, RealMLP, TabM OOF pack) | tested, not adopted | CC0 |
 | megayak (GPT-2 target-first LM, 8-seed RealMLP, compact LM) | members tested; notebook read for joint-key and key-count ideas | CC0 for datasets; notebook Apache-2.0 |
 | DavutKursun (XGBoost-on-GLM bag, output pinned by goodpjw2008) | tested, not adopted | Apache-2.0 |
+| mojjeed and DavutKursun (GPT-2 Storyteller on TPU, notebook outputs) | tested, not adopted (D30) | Apache-2.0 (notebook outputs) |
 | mathsonchain (17 single models) | OOF members | CC BY 4.0 |
 | Masaya Kawamata (GPT-2 target-first classifier) | OOF member | CC BY 4.0, attributed |
 | yekenot (RealMLP v15, PyTorch RealMLP, TabM notebook outputs) | OOF members | not recorded in DESIGN.md or `import_public.py` |
@@ -511,3 +514,5 @@ Competition data: subject to the competition rules, not included in the repo. Or
 | Probing the public board to tune the final file | rejected by design: picks are made by CV (D1, D27) |
 | A purpose-built additive model to test section 7.1 | no reason recorded; the spline GLM is the closest we ran (D12) |
 | Private-board result | not available until the competition closes on 2026-11-30 |
+| Pseudo-labelling | not run. Adversarial validation finds no shift to correct (D30), and a learning curve bounds the gain: on folds 0 and 1 the best booster scores 0.94691 / 0.94896 / 0.94993 / 0.95066 at 140k / 280k / 420k / 560k training rows, so even the 300k test rows with true labels might add about 0.001 to one booster, and pseudo-labels carry no label information beyond the model that made them (D30) |
+| Pairwise ranking objective (XGBoost `rank:pairwise`, GLM start) | pending (D30): Kaggle kernel r21rank |
