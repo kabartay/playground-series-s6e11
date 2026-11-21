@@ -1202,3 +1202,7 @@ leaves lose). Our boosters are already 4-leaf or depth 2 and start from a GLM th
 shapes. Coarser binning (`max_bin`, untested here) is the one knob it points at; not run, because changes to
 one own booster have not moved the public-member stacks since D21.
 
+**4-epoch RealMLP on top of `stack_pub4wz` (null).** Weight chosen on the four other folds each time (0.03 to
+0.1), zones after: 0.95273, the same as `stack_pub4wz`; up on 4 of 5 folds but fold 4 down 0.0002, so CV does
+not rise and the rule does not adopt it.
+
