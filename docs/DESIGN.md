@@ -1194,3 +1194,11 @@ repeats `r4_glm_spl8` (D12-D13). skull237's and olegpan's teaching baselines on 
 in-fold target encoding plus frequencies, GLM boost), early-stops on the scored fold and publishes only a
 submission. mzishran's *Ranking* notebook is the 2026-11-20 version already read in D30.
 
+**DavutKursun's tree-size follow-ups (discussion 760703, read as text).** Tuning each leaf count over twelve
+settings lifts 64-leaf trees by 0.0022 but leaves them 0.0014 below tuned stumps (5 of 5 folds); 64-leaf trees
+restricted to one column each are still 0.0030 below stumps, so most of the loss of big trees comes from
+cutting single columns too finely, not from interactions. Consistent with D10 and D12 (4 leaves beat 31; 8
+leaves lose). Our boosters are already 4-leaf or depth 2 and start from a GLM that carries the per-column
+shapes. Coarser binning (`max_bin`, untested here) is the one knob it points at; not run, because changes to
+one own booster have not moved the public-member stacks since D21.
+
