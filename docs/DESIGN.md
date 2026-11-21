@@ -1178,3 +1178,17 @@ folds, publishes OOF and test scores and scores at least 0.9525 alone, and avera
 alexchilton's wide stacks publish test files only; yashteotia's `oof_predictions.csv` holds own models and a
 blend of them, below the bar; megayak's notebook publishes members, not its stack. The four-stack mean stands.
 
+**dennis6886's four-family rank correction (null).** *Fraud Signal Rank Fusion* (two notebooks, read as text)
+nudges malyshevdanil's board-selected ranking by 0.025 x the mean over four families (GPT, linear, tree,
+neural) of `confidence * clip(family median rank - base, +-0.12)`, with `confidence = 1/(1 + 6 * median absolute
+deviation)`; constants picked on public-board history, no OOF check, only test files published. Nothing is
+fitted, so we applied it with those constants to `stack_pub4wz`'s OOF, families from our imported members by
+the same name rule (2 GPT, 41 linear, 69 tree, 19 neural), zones after: 0.95273 at 0.025 (2 of 5 folds up),
+0.95272 at 0.05, 0.95270 at 0.1; each family alone 0.95272 to 0.95273, at most 3 of 5.
+
+**More notebooks read as text (nothing to test).** hittmg's four Optuna notebooks (HGB, CatBoost, XGBoost,
+LightGBM; sklearn `TargetEncoder`, 100 trials each) early-stop on the validation fold, tune on the same CV and
+publish no OOF. goutamsharma12's spline logistic regression (8 knots, cubic, categorical interaction strings)
+repeats `r4_glm_spl8` (D12-D13). skull237's and olegpan's teaching baselines on our split: logistic regression
+0.9419, depth-2 HGB 0.9466.
+
