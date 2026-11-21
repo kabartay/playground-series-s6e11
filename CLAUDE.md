@@ -25,6 +25,8 @@ Personal Kaggle entry (not Finkele work). Repository, docs and chat are in Engli
 - The Mac is shared with a 24/7 pipeline and other sessions. Check `uptime` and `memory_pressure` first; keep `THREADS` at 4 or below.
 - FinTFM runs on CPU only here, and only when the machine is quiet; see the fintfm repo's CLAUDE.md for its memory limits.
 - Kaggle GPU quota belongs to fintfm: do not use it here unless the owner says so. Exception (owner, 2026-11-18): one own GPT-2 language-model run of about 10 GPU hours, only after the weekly 30-hour quota resets.
+- Update (owner, 2026-11-21): Kaggle GPU is available here, "use wisely": only for jobs that clearly gain from it,
+  with a time estimate stated first (`scripts/kaggle_kernel.py push --gpu`).
 - RunPod (owner, 2026-11-18): paid GPU via `scripts/runpod_lm.py`; every paid run needs the owner's yes for that run.
   The key lives in `.env` (gitignored; for r14 the fintfm key was used once with the owner's OK). Check afterwards that no `s6e11-*` pod is left.
 
