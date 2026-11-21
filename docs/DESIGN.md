@@ -1190,5 +1190,7 @@ the same name rule (2 GPT, 41 linear, 69 tree, 19 neural), zones after: 0.95273 
 LightGBM; sklearn `TargetEncoder`, 100 trials each) early-stop on the validation fold, tune on the same CV and
 publish no OOF. goutamsharma12's spline logistic regression (8 knots, cubic, categorical interaction strings)
 repeats `r4_glm_spl8` (D12-D13). skull237's and olegpan's teaching baselines on our split: logistic regression
-0.9419, depth-2 HGB 0.9466.
+0.9419, depth-2 HGB 0.9466. francescoliveras's *EDA and Prediction* (2026-11-20) follows our recipe (84 value and digit keys,
+in-fold target encoding plus frequencies, GLM boost), early-stops on the scored fold and publishes only a
+submission. mzishran's *Ranking* notebook is the 2026-11-20 version already read in D30.
 
