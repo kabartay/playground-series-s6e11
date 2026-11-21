@@ -11,7 +11,9 @@ rows added to each training fold (0 = not used).
 
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
-| stack_pubwz: 0.5 stack_pub5 + 0.5 wide LM stack, + zones 1-4 (D29) | 20 | fit-free logit-rank average, zone rows sent to the bottom | | | **0.95263** | |
+| stack_pub4wz: mean of 4 nested stacks (stack_pub5, wide LM, DavutKursun wall, dhananjayk2609 wide), + zones 1-4 (D31) | 22 | fit-free logit-rank average, zone rows sent to the bottom; up on 5 of 5 folds over stack_pubwz | | | **0.95273** | |
+| stack_pubwz + 0.05-0.1 megayak 4-epoch RealMLP, weight chosen inside the folds (D31) | 22 | fit-free average + one member; up on 4 of 5 folds, within selection noise, superseded | | | 0.95265 | |
+| stack_pubwz: 0.5 stack_pub5 + 0.5 wide LM stack, + zones 1-4 (D29) | 20 | fit-free logit-rank average, zone rows sent to the bottom | | | 0.95263 | |
 | wide LM stack + zones 1-4 (D29; 2 of 5 folds against stack_pub5z) | 20 | public stack, zone rows sent to the bottom | | | 0.95261 | |
 | stack: wide LM stack + 2 RealMLP (D21) | 9 | logistic (C=0.1) on 3 OOF | | | 0.95255 | |
 | stack_pub5 + zero-fraud zones 1-4 (D27) | 19 | logistic (C=0.01) on 22 OOF, zone rows sent to the bottom | | | 0.95254 | |
@@ -20,6 +22,7 @@ rows added to each training fold (0 = not used).
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
 | stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
 | stack_pub5 + r21_gbx_rank_p1 (D30) | 21 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted (rank-normalised p1n 0.95235, p8n 0.95230) | | | 0.95246 | |
+| stack_pub5 + pub_mg_realmlp_4ep (D31) | 22 | logistic (C=0.01) on 23 OOF; up on 3 of 5 folds, not adopted | | | 0.95247 | |
 | stack_pub5 + r20_fintfm_ro (D29) | 20 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted | | | 0.95245 | |
 | stack_pub5 + both Storyteller GPT-2 members (D30) | 21 | logistic (C=0.01) on 24 OOF; up on 2 of 5 folds, not adopted | | | 0.95240 | |
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
@@ -1121,3 +1124,51 @@ adversarial validation and the ranking objective.
 | MinMax tail selection (owner's idea) | run: null (D29) |
 | XGBoost stumps or one-column-per-tree boosters (DavutKursun) | not run; stumps reach 0.95001, below our boosters |
 | RealMLP minus TabM logit difference as a stack column (Gram-Schmidt notebook) | not run; the notebook's evidence is simulated |
+
+## D31. Round twenty-two: public-notebook sweep, a mean of four independent stacks
+
+**Sweep (2026-11-21).** Fifteen notebooks updated on 2026-11-19 to 2026-11-21 were read as text (three reading
+agents, nothing executed), and the competition's dataset list was checked for prediction banks we had not
+seen. None shows an honest route above about 0.9526 by itself. Points we used or checked:
+
+- dhananjayk2609 (*Part 3: Final Blend*) and DavutKursun (*The 0.9526 Wall*) each build a nested logistic
+  stack of 256 and 95 public members on our folds: 0.95260 and 0.95261. Both ship OOF and test scores as
+  notebook outputs (Kaggle default Apache-2.0). mathsonchain reports that a mean of four such stacks reaches
+  0.95262 against 0.95257 to 0.95261 for each alone.
+- dhananjayk2609 says lbfgs stops early on hundreds of collinear members. Our stacker on stack_pub5's 22
+  members is converged: lbfgs at tol 1e-10 (202 to 268 iterations) and newton-cholesky (9 iterations) give
+  0.95248 against 0.95249 at the default (59 to 75 iterations).
+- megayak added a 4-epoch RealMLP to `megayak/s6e11-realmlp-member` (CC0, our split, 2026-11-20): 0.94463
+  alone, overfit, but it errs differently. Imported as `pub_mg_realmlp_4ep`.
+- Not imported: mayankraaz's predictions (3 folds on an 80% subset, seed 2026), hosen42's and malyshevdanil's
+  files (public-board ladder steps, test only), sk20220623 and sometimessubodh (boosters on raw columns, no fold
+  file, below our members), sadamtorres (GLM-start boosters and TabPFN; yashteotia's pool already holds them,
+  D29). evgendvorkin's group-mean and deviation features (+0.0001 on one XGBoost in a 2-fold screen) and
+  georgymamarin's neighbouring-value gaps (+0.00002, 4 of 5 folds, nothing after GPT-2) are not run.
+- Red flags noted in the text: zohrab's retrain cell and yekenot's TabM stop on the scored fold; the
+  0.9552-0.9554 public files are board-steered ladders (asteriospanoras replays one step at -0.00059 on OOF).
+
+**4-epoch RealMLP (not adopted).** In stack_pub5 (C=0.01): 0.95247, up on 3 of 5 folds. Added to stack_pubwz
+at a fixed weight: 0.95266, 0.95267, 0.95266 at 0.03, 0.05, 0.1, each up on 4 of 5 folds; with the weight
+chosen on the four other folds each time (0.05 to 0.1): 0.95265, up on 4 of 5. The gain, 0.00002, is the size
+of the selection effect estimated in D13, and the mean of four stacks below supersedes it.
+
+**Mean of four nested stacks (adopted, `stack_pub4wz`).** `src/stack_average.py` (new) averages, with equal
+weights on logit-ranks and nothing fitted, stack_pub5, goodpjw2008's wide LM stack, DavutKursun's stack
+(`stack_all`; its fold column equals ours) and dhananjayk2609's wide stack, then `zones.py` sends zones 1-4
+to the bottom. It checks ids, folds and each public stack's per-fold AUCs against the author's log. The main
+test was fixed before any result was seen.
+
+| Blend (+ zones 1-4, refitted per fold) | Nested CV | Folds | Folds up vs stack_pubwz |
+| --- | --- | --- | --- |
+| stack_pubwz (D29) | 0.95263 | 0.95188 0.95269 0.95740 0.95290 0.94835 | |
+| **mean of the four stacks (main test)** | **0.95273** | 0.95193 0.95276 0.95755 0.95293 0.94851 | 5 of 5 |
+| any 2 of the 4, other than pub5 + wide LM (secondary) | 0.95266 to 0.95276 | | 2 to 5 of 5 |
+| any 3 of the 4 (secondary) | 0.95267 to 0.95276 | | 4 or 5 of 5 |
+
+OOF rank correlations between the four stacks are 0.9957 to 0.9984; on test 0.9915 to 0.9990, so the stacks
+differ more on test than OOF, and averaging them cuts that variance. The best secondary mixes (0.95276) were
+picked after looking and are not used. Written as `submissions/stack_pub4wz.csv` (16,730 test rows in zones),
+not submitted. Two of the four inputs are other people's stacks of public members whose recipes were chosen on
+these folds, which the threats-to-validity note in FINDINGS 8 covers.
+

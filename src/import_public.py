@@ -264,6 +264,8 @@ def members() -> list[dict]:
     for ds, name, oof, test, rank, note in (
         ("s6e11-target-first-lm", "lm", "lm_oof.npy", "lm_test.npy", True, "GPT-2 target-first"),
         ("s6e11-realmlp-member", "realmlp_8seeds", "mlp_oof.npy", "mlp_test.npy", False, "RealMLP, 8 seeds"),
+        ("s6e11-realmlp-member", "realmlp_4ep", "mlp4_oof.npy", "mlp4_test.npy", False,
+         "RealMLP, 4 epochs, 2 seeds"),
     ):
         d = PUB / f"megayak__{ds}"
         if d.exists():

@@ -1,0 +1,14 @@
+{
+  "method": "fit-free mean of logit-ranks of four nested stacks: stack_pub5, pub_fa_wide_lm_stack, DavutKursun 'wall' stack_all, dhananjayk2609 18_wide_stack; then zones 1-4 (D31)",
+  "parts": [
+    "stack_pub5.csv",
+    "runs/pub_fa_wide_lm_stack/test.npy",
+    "data/public/davutkursun__s6e11-the-0-9526-wall-who-still-adds-signal/test_wall_stack.csv (stack_all)",
+    "data/public/dhananjayk2609__s6e11-fraud-part-3-final-blend-lb-0-953/oof/18_wide_stack_test.npy"
+  ],
+  "script": "src/stack_average.py, then src/zones.py",
+  "cv": 0.95273,
+  "folds": [0.95193, 0.95276, 0.95755, 0.95293, 0.94851],
+  "vs": "stack_pubwz 0.95263, up 5/5 folds; pre-registered as the main test before results were seen",
+  "zones": "zones.py: zones 1-4 sent to the bottom (D27)"
+}

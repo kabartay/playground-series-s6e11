@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-21. The competition closes 2026-11-30 23:59 UTC. Rounds twenty (D29) and twenty-one (D30) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-21. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-two (D29 to D31) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -19,6 +19,7 @@ The generator recombines values from a 20,000-row original dataset, so exact val
 | Own models only: `stack_r12z` (24 models + zero-fraud zones; a final pick until 2026-11-20) | 0.95143 | 0.95164 | D27 |
 | Final pick, with public members: `stack_pub5z` | 0.95254 | 0.95288 | D27 |
 | Final pick: `stack_pubwz` (fit-free average of `stack_pub5` and the wide LM stack, + zones) | 0.95263 | 0.95293 | D29, COMPETITION.md |
+| Highest CV: `stack_pub4wz` (fit-free mean of four nested stacks, + zones; built 2026-11-21) | 0.95273 | not submitted | D31 |
 
 The final selection marked on Kaggle on 2026-11-20 is `stack_pubwz` and `stack_pub5z`, the two best files by CV. The earlier selection (2026-11-19) was `stack_pub5z` and `stack_r12z` (COMPETITION.md).
 
@@ -189,6 +190,8 @@ Why a GLM first: the trees already recover numeric shapes, but the GLM adds smoo
 
 `stack_pubwz` is `0.5 stack_pub5 + 0.5 wide LM stack`, averaged on logit ranks, then zones 1 to 4. It has no fitted weights. The two inputs' test logit-ranks correlate at 0.9990 (D29).
 
+`stack_pub4wz` extends it to four nested stacks built independently on our folds: `stack_pub5`, goodpjw2008's wide LM stack, DavutKursun's 95-member stack and dhananjayk2609's 256-member stack (both Kaggle notebook outputs). Equal weights on logit ranks, then zones 1 to 4 (`src/stack_average.py`). The four agree at rank correlation 0.9957 to 0.9984 out of fold but 0.9915 to 0.9990 on test, so averaging cuts test-side variance that a single stack carries (D31).
+
 ## 5. Results
 
 ### 5.1 The ladder
@@ -239,11 +242,13 @@ Stacks with public members (nested CV):
 | Own 21 + the wide LM stack (`stack_pub5`) | 22 | 0.95249 | +0.00024 | D21 |
 | `stack_pub5` + zones 1-4 (`stack_pub5z`) | 22 | 0.95254 | +0.00005, 5 of 5 | D27 |
 | 0.5 `stack_pub5` + 0.5 wide LM stack + zones (`stack_pubwz`) | fit-free | 0.95263 | +0.00009, 4 of 5 | D29 |
+| Mean of four nested stacks + zones (`stack_pub4wz`) | fit-free | 0.95273 | +0.00010, 5 of 5 | D31 |
 
 ### 5.2 Best runs and submissions
 
 | File | Date | CV (nested, 5-fold) | Public | Note |
 | --- | --- | --- | --- | --- |
+| `stack_pub4wz.csv` | 2026-11-21 | 0.95273 | not submitted | D31 |
 | `stack_pubwz.csv` | 2026-11-20 | 0.95263 | 0.95293 | D29; final pick |
 | `stack_pub5z.csv` | 2026-11-19 | 0.95254 | 0.95288 | D27; final pick |
 | `stack_pub5.csv` | 2026-11-17 | 0.95249 | 0.95284 | D21 |
@@ -379,6 +384,9 @@ Leaves with no fraud in the four training folds still hold 43 to 615 frauds on t
 | yashteotia's 278-model wide stack as a third stack to average | not used: only its test file is published, not its out-of-fold scores | D29 |
 | Two target-first GPT-2 "Storyteller" members trained on a TPU (mojjeed; DavutKursun seed 2027, 8 epochs), 0.95003 and 0.95020 alone, rank correlation 0.98 with the GPT-2 members already in | `stack_pub5` + either or both: 0.95240 to 0.95242, 2 of 5 folds up, weights 0.16 to 0.31; in the `stack_pubwz` average at fixed shares: +2.4 points at 0.1 (3 of 5), -0.4 at 0.2, -11.6 at a third | D30 |
 
+| megayak's 4-epoch RealMLP (0.94463 alone, overfit) | `stack_pub5`: 0.95247, 3 of 5 folds up; in `stack_pubwz` with the weight chosen inside the folds (0.05 to 0.1): 0.95265, 4 of 5, within selection noise | D31 |
+| Tighter convergence of the logistic stacker (lbfgs tol 1e-10, newton-cholesky) | 0.95248 against 0.95249: the default is converged on 22 members | D31 |
+
 ### 6.7 Error inspection (not a model)
 
 Segment AUCs of `stack_r12` are flat (0.93 to 0.96) and calibration by segment is close (No Authentication 6.41% predicted against 6.45% actual). The 433,210 rows with every risk flag clear hold 13% of the frauds but 47% of the fraud-side AUC loss (AUC 0.8988 within them); every member scores 0.888 to 0.898 there. Member disagreement does not mark errors. No targeted fix is indicated (D29).
@@ -420,7 +428,7 @@ The public-member stack levelled off near 0.9522 at 173 members (D20) and reache
 
 ### 7.4 An honest ceiling near 0.9526, and a board wall
 
-On our folds the CV-backed results meet at about 0.9526: the wide LM stack 0.95257, the 278-model pool 0.95261, and `stack_pubwz` 0.95263 (D29). DavutKursun's 95-member stack (0.95257) and goodpjw2008's 201-member wide stack land there as well; his notebook is titled *The 0.9526 Wall* (D30). The public board sits higher (first place 0.95931 on 2026-11-16, about 0.955 for the top group on 2026-11-19), and the sources we read agree that the top files are public files steered by the board (D7, D21, D27). Our evidence on steering is limited to what others measured: a 0.95388 public file scoring 0.95246 on labelled rows, and a 0.95508 step losing on all five folds (D27). We did not probe the board ourselves. Where the private rows end up is not measured.
+On our folds the CV-backed results meet at about 0.9526: the wide LM stack 0.95257, the 278-model pool 0.95261, and `stack_pubwz` 0.95263 (D29). Averaging four of these stacks built independently reaches 0.95273 (D31), so the wall is partly the variance of any one stack. DavutKursun's 95-member stack (0.95257) and goodpjw2008's 201-member wide stack land there as well; his notebook is titled *The 0.9526 Wall* (D30). The public board sits higher (first place 0.95931 on 2026-11-16, about 0.955 for the top group on 2026-11-19), and the sources we read agree that the top files are public files steered by the board (D7, D21, D27). Our evidence on steering is limited to what others measured: a 0.95388 public file scoring 0.95246 on labelled rows, and a 0.95508 step losing on all five folds (D27). We did not probe the board ourselves. Where the private rows end up is not measured.
 
 ### 7.5 What transfers to real fraud work, and what does not
 
@@ -496,6 +504,8 @@ Competition data: subject to the competition rules, not included in the repo. Or
 | megayak (GPT-2 target-first LM, 8-seed RealMLP, compact LM) | members tested; notebook read for joint-key and key-count ideas | CC0 for datasets; notebook Apache-2.0 |
 | DavutKursun (XGBoost-on-GLM bag, output pinned by goodpjw2008) | tested, not adopted | Apache-2.0 |
 | mojjeed and DavutKursun (GPT-2 Storyteller on TPU, notebook outputs) | tested, not adopted (D30) | Apache-2.0 (notebook outputs) |
+| DavutKursun (*The 0.9526 Wall*, stack outputs) and dhananjayk2609 (*Part 3: Final Blend*, stack outputs) | two of the four stacks in `stack_pub4wz` (D31) | Apache-2.0 (Kaggle notebook outputs, default) |
+| megayak (4-epoch RealMLP member) | tested, not adopted (D31) | CC0 |
 | mathsonchain (17 single models) | OOF members | CC BY 4.0 |
 | Masaya Kawamata (GPT-2 target-first classifier) | OOF member | CC BY 4.0, attributed |
 | yekenot (RealMLP v15, PyTorch RealMLP, TabM notebook outputs) | OOF members | not recorded in DESIGN.md or `import_public.py` |
