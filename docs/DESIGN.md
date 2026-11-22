@@ -1206,3 +1206,22 @@ one own booster have not moved the public-member stacks since D21.
 0.1), zones after: 0.95273, the same as `stack_pub4wz`; up on 4 of 5 folds but fold 4 down 0.0002, so CV does
 not rise and the rule does not adopt it.
 
+
+**2026-11-22 sweep of the 0.9555 notebooks (read as text).** goodpjw2008's *Board Model + RealMLP* (step U,
+public 0.95555), malyshevdanil's *Fraud Signal Lab* (v40, 0.95551), areebbb's *Which Signals Rank Fraud?*
+(0.95552), dennis6886's clipped-median file (0.95554), its V3 reproduction and *CatBoost within fraud risk
+bands*, mzishran's walkthrough and daoviet's *Journey to Top 100* (0.95547) are all steps on the same public
+ladder: each starts from the newest public file and adds a residual (orthogonal projections, a clipped median of
+three residuals ×0.12, a weak CatBoost within 40 rank bands), with weights chosen by a model fitted on about 198
+scored public files. The authors say so; none has a matched OOF comparison, and goodpjw2008 replays only the
+member part of step U (+0.000066 in-sample, at a fifth of its size). asteriospanoras's *Will the top survive
+private?* adds up the OOF replays of the ladder: its 0.95504 file sits about 0.00037 below the 0.95442 file it grew
+from, and 9 of 10 steps gained less than one noise SD on the board (noise SD of a public gap ∝ √(1 − ρ), ρ the
+rank correlation of the two files). The CV-backed files these authors name as their private picks score nested
+OOF 0.95266 (goodpjw2008's LM Ladder) and 0.95274 with zones (daoviet's *CV Fortress v15*, not published), level
+with `stack_pub4wz` (0.95273). Nothing to import.
+
+**Robust combination of the four stacks (null, pre-registered; from the clipped-median idea above).** Median of
+the four logit-ranks 0.95271 (0 of 5 folds up); mean of the middle two 0.95271 (0 of 5); mean with each stack's
+deviation from the mean clipped at the 0.90 / 0.96 / 0.99 quantile 0.95273 (3, 2 and 1 of 5 up). None beats the
+plain mean (0.95273), so `stack_pub4wz` stays.
