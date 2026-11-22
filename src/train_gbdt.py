@@ -437,6 +437,12 @@ def main() -> None:
     )
     ap.add_argument("--seeds", type=int, default=1, help="models per fold with different seeds, averaged")
     ap.add_argument("--seed0", type=int, default=0, help="first seed; seeds run seed0 .. seed0 + seeds - 1")
+    ap.add_argument(
+        "--neg-frac",
+        type=float,
+        default=1.0,
+        help="undersampling bag: each seed trains on all frauds and this random share of legitimate rows",
+    )
     ap.add_argument("--rows", type=int, default=0, help="smoke test on a stratified subsample; saves nothing")
     ap.add_argument(
         "--train-frac",
@@ -540,11 +546,18 @@ def main() -> None:
         n_seeds = 1 if a.model == "glm" else a.seeds
         pv, pt, it = 0.0, 0.0, 0
         for s in range(a.seed0, a.seed0 + n_seeds):
+            Xs, ys, ws, ins = Xa, ya, wa, init
+            if a.neg_frac < 1:
+                # Undersampling bag (D32): all frauds, a fresh random share of legitimate rows per seed.
+                rng = np.random.default_rng(1000 * k + s)
+                keep = np.flatnonzero((ya == 1) | (rng.random(len(ya)) < a.neg_frac))
+                Xs, ys, ws = Xa.iloc[keep], ya[keep], wa[keep]
+                ins = None if init is None else (init[0][keep], init[1], init[2])
             if a.es == "inner" and a.model in ("lgb", "xgb", "cat"):
-                n = inner_rounds(a.model, params, Xa, ya, wa, init, seed=s, fold=k)
-                v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, None, Xte_k, init, seed=s, n_iter=n)
+                n = inner_rounds(a.model, params, Xs, ys, ws, ins, seed=s, fold=k)
+                v, t, i = fit_predict(a.model, params, Xs, ys, ws, Xva, None, Xte_k, ins, seed=s, n_iter=n)
             else:
-                v, t, i = fit_predict(a.model, params, Xa, ya, wa, Xva, y[i_va], Xte_k, init, seed=s)
+                v, t, i = fit_predict(a.model, params, Xs, ys, ws, Xva, y[i_va], Xte_k, ins, seed=s)
             pv, pt, it = pv + v / n_seeds, pt + t / n_seeds, it + int(i) // n_seeds
         oof[i_va] = pv
         test += pt / len(fl)

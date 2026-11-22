@@ -12,6 +12,8 @@ rows added to each training fold (0 = not used).
 | Run | Round | Model | Features | Orig | CV AUC | Fold SD |
 | --- | --- | --- | --- | --- | --- | --- |
 | stack_pub4wz: mean of 4 nested stacks (stack_pub5, wide LM, DavutKursun wall, dhananjayk2609 wide), + zones 1-4 (D31) | 22 | fit-free logit-rank average, zone rows sent to the bottom; up on 5 of 5 folds over stack_pubwz | | | **0.95273** | |
+| stack_pub4wz + bagged own stack as a fifth (D32 main test; 16 logistic stackers on random halves of D20's 173 members) | 22 | fit-free mean of 5, + zones; up on 0 of 5 folds, not adopted |  |  | 0.95269 |  |
+| nested logistic weights of the four stacks in stack_pub4wz (D32) | 22 | logistic on 4 logit-ranks, + zones; up on 2 of 5 folds |  |  | 0.95268 |  |
 | stack_pubwz + 0.05-0.1 megayak 4-epoch RealMLP, weight chosen inside the folds (D31) | 22 | fit-free average + one member; up on 4 of 5 folds, within selection noise, superseded | | | 0.95265 | |
 | stack_pubwz: 0.5 stack_pub5 + 0.5 wide LM stack, + zones 1-4 (D29) | 20 | fit-free logit-rank average, zone rows sent to the bottom | | | 0.95263 | |
 | wide LM stack + zones 1-4 (D29; 2 of 5 folds against stack_pub5z) | 20 | public stack, zone rows sent to the bottom | | | 0.95261 | |
@@ -20,7 +22,9 @@ rows added to each training fold (0 = not used).
 | stack_pub5 + yekenot TabM (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 23 OOF | | | 0.95251 | |
 | stack_pub5 + 5 new public members (D27; not adopted, 3 of 5 folds) | 19 | logistic (C=0.01) on 27 OOF | | | 0.95250 | |
 | stack: own 21 + wide LM stack (D21) | 9 | logistic (C=0.01) on 22 OOF | | | 0.95249 | |
+| stack_pub5 + r22_iforest (D32) | 22 | logistic (C=0.01) on 23 OOF; up on 2 of 5 folds, not adopted |  |  | 0.95248 |  |
 | stack: own 21 honest boosters + wide LM stack (D22) | 11 | logistic (C=0.01) on 22 OOF | | | 0.95247 | |
+| stack_pub5 + r22_lgb_l4_us25x4 (D32) | 22 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted |  |  | 0.95247 |  |
 | stack_pub5 + r21_gbx_rank_p1 (D30) | 21 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted (rank-normalised p1n 0.95235, p8n 0.95230) | | | 0.95246 | |
 | stack_pub5 + pub_mg_realmlp_4ep (D31) | 22 | logistic (C=0.01) on 23 OOF; up on 3 of 5 folds, not adopted | | | 0.95247 | |
 | stack_pub5 + r20_fintfm_ro (D29) | 20 | logistic (C=0.01) on 23 OOF; up on 1 of 5 folds, not adopted | | | 0.95245 | |
@@ -28,6 +32,7 @@ rows added to each training fold (0 = not used).
 | stack: own 21 + public 156 (D21) | 9 | logistic (C=0.01) on 177 OOF | | | 0.95233 | |
 | stack: own 21 + public 152 (D20) | 9 | logistic (C=0.01) on 173 OOF | | | 0.95225 | |
 | stack: D20 without busyaprime's 27 boosters (D21) | 9 | logistic (C=0.01) on 146 OOF | | | 0.95219 | |
+| stack: D20's 173 members, bagged (D32; 16 random halves, C=0.01) | 22 | mean of 16 nested logistic stackers; single-stacker control 0.95224 |  |  | 0.95219 |  |
 | stack: own 21 + public 52 (D19) | 9 | logistic (C=0.1) on 73 OOF | | | 0.95204 | |
 | stack_r12 + zero-fraud zones 1-4 (own models, D27) | 19 | logistic (C=0.1) on 24 OOF, zone rows sent to the bottom | | | 0.95143 | |
 | stack_r12 with r20_glm_tok_enc3 in place of r10_glm_tok (own models, D29) | 20 | logistic (C=0.1) on 24 OOF | | | 0.95140 | |
@@ -88,6 +93,7 @@ rows added to each training fold (0 = not used).
 | r7_lgb_l4_art | 7 | LightGBM, 4 leaves | artefacts + TE | 0 | 0.95040 | 0.0035 |
 | r7_glm_m3 | 7 | spline GLM | TE at m 5/20/100 | 0 | 0.95037 | 0.0033 |
 | r5_lgb_l4_s3 | 5 | LightGBM, 4 leaves, 3 seeds | as r3_lgb_l4 | 0 | 0.95033 | 0.0034 |
+| r22_lgb_l4_us25x4 (D32) | 22 | LightGBM, 4 leaves, inner ES; 4 undersampling bags (all frauds, 25% of legitimate rows); r11_lgb_l4_all_kc 0.95043, up on 3 of 5 folds | as r11_lgb_l4_all_kc | 0 | 0.95033 | 0.0035 |
 | r7_glm_art | 7 | spline GLM | artefacts + TE | 0 | 0.95028 | 0.0032 |
 | r7_glm_joint | 7 | spline GLM | joint keys | 0 | 0.95028 | 0.0033 |
 | r7_glm_kc | 7 | spline GLM | key counts | 0 | 0.95028 | 0.0032 |
@@ -115,14 +121,17 @@ rows added to each training fold (0 = not used).
 | r16_rmlp_emb_all_e5 | 16 | as r16_rmlp_emb_all with 5 epochs; overfits, not adopted | as r12_rmlp_emb | 0 | 0.94854 | 0.0035 |
 | lgb_digits_te2 | 2 | LightGBM, 31 leaves | as above + 45 top-10 pairs | 0 | 0.94845 | 0.0034 |
 | lgb_raw_l4 | 2 | LightGBM, 4 leaves | raw | 0 | 0.94752 | 0.0030 |
+| r22 screen: LightGBM 4 leaves, raw columns (D32 control) | 22 | LightGBM, inner ES | raw | 0 | 0.94749 (mean fold) |  |
 | stack of round one | 1 | logistic on 8 OOF | | | 0.94728 | |
 | r6_mlp_lr3e4 | 6 | MLP 128-64, learning rate 3e-4, 3 seeds | as r5_mlp | 0 | 0.94715 | 0.0034 |
 | r5_mlp | 5 | MLP 64-32 on the spline GLM design, 3 seeds | logit TE + one-hot + splines | 0 | 0.94715 | 0.0035 |
 | lgb_digits | 2 | LightGBM, 31 leaves | raw + first two decimal digits | 0 | 0.94712 | 0.0032 |
+| r22 screen: raw + label-free anomaly scores (D32) | 22 | LightGBM, inner ES; 0 of 5 folds up | raw + Isolation Forest, PCA-5/10 reconstruction error | 0 | 0.94712 (mean fold) |  |
 | lgb_raw_o0 | 1 | LightGBM, 31 leaves | raw | 0 | 0.94690 | 0.0031 |
 | xgb_raw_o1 | 1 | XGBoost, depth 6 | raw | 1 | 0.94681 | 0.0033 |
 | lgb_raw_o1 | 1 | LightGBM, 31 leaves | raw | 1 | 0.94680 | 0.0032 |
 | xgb_ogte_o1 | 1 | XGBoost, depth 6 | raw + original per-value rates | 1 | 0.94676 | 0.0036 |
+| r22 screen: raw + group aggregates per exact value (D32) | 22 | LightGBM, inner ES; 0 of 5 folds up | raw + 90 mean/SD/deviation columns | 0 | 0.94669 (mean fold) |  |
 | r8_mlp_all | 8 | MLP, 3 seeds | as r8_glm_all | 0 | 0.94666 | 0.0036 |
 | lgb_combo_o1 | 1 | LightGBM, 31 leaves | + ratios, flag count | 1 | 0.94659 | 0.0034 |
 | cat_ogte_o1 | 1 | CatBoost, depth 6 | raw + original per-value rates | 1 | 0.94654 | 0.0035 |
@@ -138,6 +147,7 @@ rows added to each training fold (0 = not used).
 | lc_0.5 | 21 | r11_gb_all_kc settings on 50% of each training fold, folds 0-1 only (learning curve, D30) | as r11_gb_all_kc | 0 | 0.94896 (2 folds) | |
 | lc_0.75 | 21 | r11_gb_all_kc settings on 75% of each training fold, folds 0-1 only (learning curve, D30) | as r11_gb_all_kc | 0 | 0.94993 (2 folds) | |
 | r18_gpt2_e3 | 18 | own target-first GPT-2 (RunPod A40, three epochs, 4 OOF orders, 2 test orders); stack weight 0.18 but stack CV lower, not adopted | rows as text | 0 | 0.94717 | 0.0035 |
+| r22_iforest (D32) | 22 | Isolation Forest, 300 trees, fitted without labels on train + test | raw, one-hot, standardised | 0 | 0.81128 |  |
 
 Round four (D11) is running.
 
@@ -1225,3 +1235,58 @@ with `stack_pub4wz` (0.95273). Nothing to import.
 the four logit-ranks 0.95271 (0 of 5 folds up); mean of the middle two 0.95271 (0 of 5); mean with each stack's
 deviation from the mean clipped at the 0.90 / 0.96 / 0.99 quantile 0.95273 (3, 2 and 1 of 5 up). None beats the
 plain mean (0.95273), so `stack_pub4wz` stays.
+
+## D32. Round twenty-three: variance reduction, ideas from older fraud competitions
+
+Why: the owner asked for one more search for a better stack, and pointed at three older fraud competitions
+(Playground S3E4, IEEE-CIS 2019, and notebooks on the ULB credit-card dataset). The step that last worked was
+averaging independently built stacks (D31), which cuts the variance of any one stacker, so the main test aims at
+that. Pre-registered before any result: the main test is a bagged stack of our own added to `stack_pub4wz` as a
+fifth stack, adopted only if the five-stack mean beats 0.95273 and rises on at least 4 of 5 folds. Everything
+else is secondary and cannot change the finals. CPU only, `THREADS` at 4.
+
+**Main test, bagged stack (null).** 16 logistic stackers (C=0.01), each on a random half of D20's 173 members,
+averaged, nested on our folds: 0.95219 against 0.95224 for one stacker on all 173 (D20 reported 0.95225; the
+small gap is solver noise). As a fifth stack in the fit-free mean, with zones: 0.95269 (0.95186 0.95275 0.95752
+0.95292 0.94843), 0 of 5 folds up; the unbagged stack as fifth gives 0.95271, 2 of 5. A stack on random
+halves loses more from dropping strong members than it gains from averaging.
+
+**Secondary combinations of the four stacks (null).** Nested logistic weights 0.95268 (2 of 5 up). From the
+IEEE-CIS blending notebooks (paulorzp's and the owner's *G-mean model stacking*): G-mean of rank fractions and
+arithmetic rank mean 0.95273 (2 of 5); G-mean of the complements level to six digits; keeping the 3 to 7
+least-correlated of seven stacks (correlation needs no labels, so the choice is honest) 0.95270-0.95272, 0 to
+3 of 5. The stacks correlate at 0.9946-0.9976, so how they are combined hardly matters, and picking the least
+correlated brings in weaker ones.
+
+**DavutKursun's `stack_short` (rejected).** His second stack column scores 0.95272 alone, and as a fifth stack
+0.95278 on 5 of 5 folds. His own forward path shows why: the member order was chosen on all five folds, and the
+length (32) is the best of 40 picked after looking. With the order chosen inside each fold it scores 0.95263.
+That optimism (0.0001) is larger than its gain in the mean (0.00005), so it fails the rule that a stack must be
+nested on our folds.
+
+**Undersampling bag (S3E4 and ULB notebooks; null).** `train_gbdt.py --neg-frac 0.25 --seeds 4`: each seed
+trains on every fraud and a fresh 25% of the legitimate rows, rounds picked on an inner holdout. On the
+`r11_lgb_l4_all_kc` recipe: 0.95033 against 0.95043 (folds 0.94949 0.95111 0.95529 0.95154 0.94451, up on
+3 of 5), 54 minutes. Added to `stack_pub5`: 0.95247, 1 of 5 up, weight -0.09. Undersampling throws away
+legitimate rows the booster can use; with 11,689 frauds there is no shortage of positives to fix.
+
+**Group aggregates per exact value (IEEE-CIS; null).** Deotte's 1st-place IEEE-CIS solution got its gain from
+mean and SD aggregates per rebuilt client ID (NVIDIA blog, read via a subagent; the Kaggle write-ups themselves
+render client-side and could not be read). We have no client, so the nearest analogue is each exact value of a
+numeric column: for each of the six numeric columns, the mean, SD and deviation of the other five among rows
+sharing that value, over train + test, no labels (90 columns). Screen, 4-leaf LightGBM on raw columns, inner
+early stopping, five folds: 0.94749 mean fold without, 0.94669 with, down on all 5 folds. The generator
+recombines values across rows (D2), so rows sharing a value share nothing else.
+
+**Anomaly scores (ULB autoencoder notebook; null).** Isolation Forest (300 trees) and PCA reconstruction error
+(5 and 10 components), fitted on standardised one-hot train + test without labels. Alone they score 0.81128,
+0.79166 and 0.77241, so fraud rows are unusual rows. Added to the raw screen: 0.94712, 0 of 5 folds up. The
+Isolation Forest as a member (`r22_iforest`): `stack_pub5` 0.95248 (2 of 5 up), `stack_r12` 0.95129
+against 0.95138. With this many labels the boosters already learn what the anomaly score sees.
+
+**Not tested.** SMOTE (synthetic minority rows add no ranking information for boosters), IQR outlier removal
+(marcinrutecki's own notebook shows it deleting almost all fraud rows), IEEE-CIS client-ID features and
+time-ordered folds (no entity or time column here), single-feature AUC screens (24 columns).
+
+Reading: five families of ideas from four sources land on the same ceiling as D29-D31. `stack_pub4wz` stays the
+first pick.

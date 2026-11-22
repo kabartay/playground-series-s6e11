@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-21. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-two (D29 to D31) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-22. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-three (D29 to D32) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -401,6 +401,21 @@ Segment AUCs of `stack_r12` are flat (0.93 to 0.96) and calibration by segment i
 
 The readout is 0.010 below our best single models and takes a small negative stack weight in both tracks (-0.08 and -0.02), so the stack finds nothing in it to use. With stack_pub5 not improved, the stack_pubwz average was not retested.
 
+### 6.9 Variance reduction and ideas from older fraud competitions (D32)
+
+Pre-registered main test: a bagged stack of our own as a fifth stack in `stack_pub4wz` (0.95273).
+
+| Idea | Source | Result | Decision |
+| --- | --- | --- | --- |
+| Bagged stack: 16 logistic stackers on random halves of D20's 173 members, as a fifth stack | variance reduction | 0.95269; 0 of 5 up (bagged stack alone 0.95219 against 0.95224 unbagged) | D32 |
+| Nested logistic weights of the four stacks | | 0.95268; 2 of 5 up | D32 |
+| G-mean or arithmetic mean of rank fractions; least-correlated 3 to 7 of seven stacks | IEEE-CIS blending notebooks | 0.95270 to 0.95273; at most 3 of 5 up | D32 |
+| Median, trimmed and clipped means of the four stacks | dennis6886's clipped median | 0.95271 to 0.95273; at most 3 of 5 up | D31 |
+| DavutKursun's `stack_short` as a fifth stack | | rejected: member order chosen on all folds (0.95272 alone, 0.95263 with the order chosen inside each fold) | D32 |
+| Undersampling bag (4 seeds, all frauds, 25% of legitimate rows) | Playground S3E4, ULB notebooks | 0.95033 against 0.95043 alone; `stack_pub5` 0.95247, 1 of 5 up | D32 |
+| Mean, SD and deviation per exact value of each numeric column (90 columns, no labels) | IEEE-CIS client aggregates | raw-column screen 0.94669 against 0.94749; 0 of 5 up | D32 |
+| Isolation Forest and PCA reconstruction error (no labels) | ULB autoencoder notebook | alone 0.81128 / 0.79166 / 0.77241; screen 0.94712, 0 of 5 up; `stack_pub5` 0.95248, 2 of 5 up | D32 |
+
 ## 7. Discussion
 
 ### 7.1 The signal is largely additive
@@ -442,6 +457,7 @@ This is judgement. We have not run any of it on real transaction data.
 | Shallow trees started from a regularised linear model | Copied pairs, value counts, "absent from the original" flags (D14) |
 | Picking by CV, not by the public board (D29 simulation) | A public leaderboard that rewards blending public files |
 | Checking imported predictions against folds and reported AUCs (section 3.5) | Stack gains from public members whose authors tuned on the same folds (D15) |
+| Label-free anomaly scores where labels are late or scarce: Isolation Forest reaches 0.81128 here without a label, but adds nothing once 11,689 frauds are labelled (D32) | Group aggregates per exact value, which fail because the generator recombines values (D32) |
 
 ## 8. Threats to validity
 
@@ -520,7 +536,7 @@ Competition data: subject to the competition rules, not included in the repo. Or
 
 | Idea | Why not tried or not finished |
 | --- | --- |
-| TabM tuned on a GPU | CPU took 6.7 h for fold 0 and hit the 12-hour limit; the Kaggle GPU quota belongs to another project (D23, D24) |
+| TabM tuned on a GPU | CPU took 6.7 h for fold 0 and hit the 12-hour limit (D23, D24). Kaggle GPU was available from 2026-11-21; on 2026-11-22 the owner judged the expected gain (yekenot's TabM added +0.00002 to `stack_pub5`, on 3 of 5 folds) too small for about 3 GPU hours |
 | A larger or longer GPT-2 member | would cost several times the $9.20 of the three-epoch run, for a member still 0.0018 to 0.0032 below our RealMLP (D26) |
 | FinTFM fine-tuned or partitioned-context probe on RunPod | prepared and paused by the owner to save money (D24) |
 | Full FinTFM OOF and test as a stack member | about 14 kernel-hours; the one-fold probe gave no blend gain (D5, D8) |
