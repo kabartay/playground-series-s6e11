@@ -49,6 +49,7 @@ rows added to each training fold (0 = not used).
 | r9_gb_all_kc_s3 | 9 | GLM boost (LightGBM), 3 seeds | as r8_gb_all_kc | 0 | 0.95098 | 0.0032 |
 | r10_gbc_tok | 10 | GLM boost (CatBoost depth 4), not adopted (3 of 5 folds) | as r10_gb_tok | 0 | 0.95097 | |
 | r8_gb_all_kc | 8 | GLM boost (LightGBM), all round-seven features + key counts | artefacts + TE m 5/20/100 + joint keys | 0 | 0.95096 | 0.0032 |
+| r11_gb_all_kc_refitsim: one refit on four folds vs mean of four inner models, each outer fold held out (D34) | 23 | GLM boost recipe of r11_gb_all_kc, `refit_sim.py` | | 0 | 0.95096 (refit; mean of four 0.95086, mean fold AUCs) | |
 | r8_gbx_all_kc | 8 | GLM boost (XGBoost depth 2) | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
 | r9_gbx_all_kc_s3 | 9 | GLM boost (XGBoost depth 2), 3 seeds | as r8_gb_all_kc | 0 | 0.95094 | 0.0032 |
 | r11_gb_all_kc | 11 | GLM boost (LightGBM), --es inner, not adopted alone (bias check, D22) | as r8_gb_all_kc | 0 | 0.95092 | |
@@ -69,6 +70,7 @@ rows added to each training fold (0 = not used).
 | r7_gb_m3 | 7 | GLM boost | TE at m 5/20/100 | 0 | 0.95068 | 0.0034 |
 | r7_gb_art | 7 | GLM boost | artefacts + TE | 0 | 0.95066 | 0.0033 |
 | r21_gbx_rank_p1n | 21 | XGBoost depth 2, GLM start, `rank:pairwise` (1 pair per row, Kaggle T4); OOF logit-ranked per fold; not adopted. Raw pooled OOF 0.94604 | as r11_gbx_all_kc | 0 | 0.95066 | 0.0033 |
+| r8_glm_all_kc_refitsim: the same test for the spline GLM (D34) | 23 | GLM recipe of r8_glm_all_kc, `refit_sim.py` | | 0 | 0.95065 (refit; mean of four 0.95075, mean fold AUCs) | |
 | r21_gbx_rank_p8n | 21 | as r21_gbx_rank_p1n, 8 pairs per row; not adopted. Raw pooled OOF 0.94295 | as r11_gbx_all_kc | 0 | 0.95062 | 0.0033 |
 | stack of round four | 4 | logistic (C=0.01) on 5 OOF | | | 0.95066 | |
 | r7_gb_joint | 7 | GLM boost, joint keys in the GLM | raw + TE | 0 | 0.95063 | 0.0034 |
@@ -1326,3 +1328,32 @@ label leaves every encoded frame unchanged. Before committing, the same commands
 
 Reading: no published, checkable file beats 0.95273 on our folds. The public board's top is board steering, which
 explains a falling public rank without saying anything about the private rows.
+
+## D34. Round twenty-four: one refit on all rows against the mean of the fold models (null)
+
+Why: darkdevil18's notebook (D33) takes each model's test predictions from one refit on all training rows instead
+of the mean of its five fold models, after Alex Chilton measured +0.00045 for that on the public board. More rows
+stand behind every rare value's encoding, but one model loses the averaging of five. CV cannot see the choice: it
+never changes the out-of-fold rows. Pre-registered before any result: refit the test predictions of our 21
+members of `stack_pub5` only if the refit wins on at least 4 of 5 folds for both a GLM and a GLM boost recipe.
+
+**Test.** `src/refit_sim.py` repeats the choice one level down. Each outer fold plays the test set. On the other
+four folds, arm A trains four models on three folds each (inner `StratifiedKFold(4, shuffle=True, random_state=42)`)
+and averages them on the held-out fold, our current practice; arm B trains one model on all four folds, with rounds
+chosen on a 10% inner holdout as in `--es inner`. Same recipe and rows for both, nothing fitted on the held-out
+fold. Run locally at 4 threads (all Kaggle CPU slots were taken), 19 and 36 minutes.
+
+| Recipe | Mean of four | One refit | Refit minus mean (points) | Refit ahead |
+| --- | --- | --- | --- | --- |
+| spline GLM (`r8_glm_all_kc`) | 0.94940 0.95146 0.95565 0.95121 0.94601 | 0.94947 0.95127 0.95562 0.95114 0.94575 | -9.5 (SD 11.8) | 1 of 5 |
+| GLM boost (`r11_gb_all_kc`) | 0.94950 0.95146 0.95587 0.95134 0.94613 | 0.94992 0.95141 0.95588 0.95177 0.94580 | +9.8 (SD 29.2) | 3 of 5 |
+
+(1 point = 0.00001.) Null by the pre-registered rule. For the GLM, which has no seed or round noise, the mean of
+four smaller fits beats one larger fit on 4 of 5 folds: the encoders' cross-fitting and the averaging are worth more
+than the extra rows. The booster's differences follow its round count (refit rounds 770 and 934 against inner means
+of 290 and 162 on the two folds it gains most), so they measure early-stopping noise, not the extra rows. The test
+predictions stay the mean of the fold models.
+
+Tooling kept for a later use: `train_gbdt.py --refit-only` writes `runs/<name>/test_refit.npy` next to a run,
+`refit_members.py STACK.json` rebuilds every own member's refit command from its `meta.json`, and
+`stack.py --refit-test` reads the refit files where they exist.

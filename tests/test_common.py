@@ -95,3 +95,15 @@ def test_save_and_load_run_round_trip(tmp_path: Path, monkeypatch: pytest.Monkey
     assert np.array_equal(got_oof, oof) and np.array_equal(got_test, test)
     with pytest.raises(FileNotFoundError, match="missing"):
         common.load_run("missing")
+
+
+def test_load_run_prefers_the_refit_test_file_only_when_asked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(common, "RUNS", tmp_path)
+    common.save_run("r", np.zeros(3), np.zeros(2), {})
+    np.save(tmp_path / "r" / "test_refit.npy", np.ones(2))
+    assert common.load_run("r")[1].sum() == 0
+    assert common.load_run("r", refit=True)[1].sum() == 2
+    common.save_run("p", np.zeros(3), np.zeros(2), {})
+    assert common.load_run("p", refit=True)[1].sum() == 0  # no refit file: keeps test.npy

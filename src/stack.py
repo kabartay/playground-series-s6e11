@@ -30,7 +30,7 @@ from scipy.stats import rankdata
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
-from common import TARGET, CVScore, Fold, folds, load, load_run, logit
+from common import RUNS, TARGET, CVScore, Fold, folds, load, load_run, logit
 
 FitScore = Callable[[np.ndarray, np.ndarray], np.ndarray]
 """A stacker: fit on the training-row positions, return scores for the validation-row positions."""
@@ -136,6 +136,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--C", type=float, default=1.0, help="logistic stacker regularisation")
     ap.add_argument("--no-hill", action="store_true", help="skip hill climbing (slow on many members)")
     ap.add_argument("--oof-out", type=Path, help="save nested OOF stack scores (.npy)")
+    ap.add_argument(
+        "--refit-test",
+        action="store_true",
+        help="test scores from test_refit.npy where a run has one (D34); the OOF scores are unchanged",
+    )
     a = ap.parse_args(argv)
     if a.method == "hill" and a.no_hill:
         ap.error("--method hill needs hill climbing (drop --no-hill)")
@@ -148,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     tr, te, _ = load()
     y = tr[TARGET].to_numpy()
     try:
-        loaded = [load_run(r) for r in a.runs]
+        loaded = [load_run(r, refit=a.refit_test) for r in a.runs]
     except FileNotFoundError as e:
         print(f"stack.py: error: {e}", file=sys.stderr)
         return 2
@@ -156,6 +161,9 @@ def main(argv: list[str] | None = None) -> int:
     Z, Zt = member_logits(loaded)
     m = ~np.isnan(oof).any(axis=1)
     print(f"rows scored: {m.sum()} of {len(y)}")
+    if a.refit_test:
+        refit = [r for r in a.runs if (RUNS / r / "test_refit.npy").exists()]
+        print(f"test scores from one refit on all rows for {len(refit)} of {len(a.runs)} members")
     for i, r in enumerate(a.runs):
         print(f"  {r:28s} {roc_auc_score(y[m], oof[m, i]):.5f}")
 

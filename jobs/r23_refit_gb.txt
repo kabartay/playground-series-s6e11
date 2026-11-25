@@ -1,0 +1,2 @@
+# D34: refit on all rows vs mean of fold models, GLM boost recipe of r11_gb_all_kc
+refit_sim.py --model lgb --fe art --orig 0 --name r11_gb_all_kc --params {"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000} --te single --te-smooth 5,20,100 --keys full --offset glm --joint glm --key-counts --te-cv 5 --es inner

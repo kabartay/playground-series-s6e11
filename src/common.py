@@ -223,8 +223,13 @@ def save_run(name: str, oof: np.ndarray, test: np.ndarray, meta: dict[str, Any])
     return d
 
 
-def load_run(name: str) -> tuple[np.ndarray, np.ndarray]:
+def load_run(name: str, refit: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """Read ``runs/<name>/{oof,test}.npy`` (never unpickles).
+
+    Args:
+        name: run name.
+        refit: take the test scores from ``test_refit.npy`` (one model fitted on all rows, D34) when the run
+            has one; runs without it (public members) keep ``test.npy``.
 
     Raises:
         FileNotFoundError: the run does not exist; the message names the run.
@@ -232,4 +237,5 @@ def load_run(name: str) -> tuple[np.ndarray, np.ndarray]:
     d = RUNS / name
     if not (d / "oof.npy").exists() or not (d / "test.npy").exists():
         raise FileNotFoundError(f"run {name!r} not found in {RUNS}")
-    return np.load(d / "oof.npy", allow_pickle=False), np.load(d / "test.npy", allow_pickle=False)
+    test = d / "test_refit.npy" if refit and (d / "test_refit.npy").exists() else d / "test.npy"
+    return np.load(d / "oof.npy", allow_pickle=False), np.load(test, allow_pickle=False)

@@ -1,0 +1,2 @@
+# D34: refit on all rows vs mean of fold models, spline GLM recipe of r8_glm_all_kc
+refit_sim.py --model glm --fe art --orig 0 --name r8_glm_all_kc --params {"splines":8} --te single --te-smooth 5,20,100 --keys full --joint glm --key-counts --te-cv 5

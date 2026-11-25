@@ -31,7 +31,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from common import TARGET, ConfigError, folds, load, save_run
+from common import RUNS, TARGET, ConfigError, folds, load, save_run
 from encoding import FoldEncoder, key_counts
 from features import FEATURE_SETS, Frames, te_keys
 from learners import LEARNERS, FoldData, Learner, Params, Prediction, fit_glm, make_learner
@@ -111,6 +111,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="learning curve: train each fold on this stratified fraction of its training rows, score on the"
         " full validation fold; saves nothing below 1",
     )
+    ap.add_argument(
+        "--refit-only",
+        action="store_true",
+        help="skip the CV; fit once on all training rows and write runs/<name>/test_refit.npy next to an"
+        " existing run (D34); boosters need --es inner",
+    )
     return ap.parse_args(argv)
 
 
@@ -141,6 +147,10 @@ def check_args(a: argparse.Namespace) -> None:
         raise ConfigError("--hier needs target encoding and --keys full or tokens")
     if a.key_counts and a.te == "none":
         raise ConfigError("--key-counts needs target encoding (--te)")
+    if a.refit_only and learner.booster and a.es != "inner":
+        raise ConfigError("--refit-only needs --es inner for boosters (no validation fold to stop on)")
+    if a.refit_only and (a.rows or a.train_frac < 1 or a.folds < 5):
+        raise ConfigError("--refit-only runs on all rows (no --rows, --train-frac or --folds)")
     try:
         params = json.loads(a.params)
     except json.JSONDecodeError as e:
@@ -255,6 +265,16 @@ class Experiment:
         res.seconds = time.time() - t0
         return res
 
+    def refit_test(self) -> Prediction:
+        """Test predictions of one model fitted on all training rows (D34).
+
+        The training rows' encodings are cross-fitted as in every fold; the test rows are encoded from all
+        training rows. Boosters choose their rounds on a 10% holdout (``--es inner``). The fold machinery
+        needs a validation set, so the first training row stands in for one; its prediction is discarded.
+        """
+        rows = np.arange(len(self.y))
+        return self.predict_fold(99, self.fold_data(rows, rows[:1], labels_visible=False))
+
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CV, print the scores and save the run when it is a full one; return the exit status."""
@@ -265,7 +285,17 @@ def main(argv: list[str] | None = None) -> int:
         if a.rows:
             tr = train_test_split(tr, train_size=a.rows, stratify=tr[TARGET], random_state=0)[0]
             tr, te = tr.reset_index(drop=True), te.iloc[:1000].reset_index(drop=True)
+        if a.refit_only and not (RUNS / a.name / "oof.npy").exists():
+            raise ConfigError(f"--refit-only needs the run {a.name!r} in {RUNS}")
         exp = Experiment(a, tr, te, og)
+        if a.refit_only:
+            t0 = time.time()
+            p = exp.refit_test()
+            np.save(RUNS / a.name / "test_refit.npy", p.test)
+            info = dict(vars(a), refit_rounds=p.n_iter, seconds=round(time.time() - t0))
+            (RUNS / a.name / "refit.json").write_text(json.dumps(info, indent=2))
+            print(f"{a.name}: wrote test_refit.npy ({p.n_iter} rounds, {time.time() - t0:.0f}s)")
+            return 0
         res = exp.run()
     except (ConfigError, FileNotFoundError) as e:
         print(f"train_gbdt.py: error: {e}", file=sys.stderr)
