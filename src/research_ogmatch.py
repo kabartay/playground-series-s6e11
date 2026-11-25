@@ -29,8 +29,8 @@ import scipy.sparse as sp
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
-from common import RUNS, TARGET, folds, load
-from stack import to_logit
+from common import RUNS, TARGET, CVScore, folds, load
+from stack import load_members
 
 MATCH_COLS = [
     "amount_usd",
@@ -44,7 +44,8 @@ MATCH_COLS = [
 
 def indicator(df: pd.DataFrame, vocab: list[dict[float, int]], offsets: np.ndarray) -> sp.csr_matrix:
     """Sparse 0/1 matrix, one column per (column, original value); values not in the original drop out."""
-    rows, cols = [], []
+    rows: list[np.ndarray] = []
+    cols: list[np.ndarray] = []
     for j, c in enumerate(MATCH_COLS):
         k = df[c].map(vocab[j]).to_numpy()
         ok = ~np.isnan(k)
@@ -78,6 +79,7 @@ def match_features(df: pd.DataFrame, og: pd.DataFrame, chunk: int = 50_000) -> p
 
 
 def main() -> None:
+    """Print the match features' fraud rates and AUCs, then the stacker with and without them."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("stack", type=Path, help="submission JSON with runs and C")
     ap.add_argument("--save", action="store_true", help="write runs/_ogmatch_{train,test}.npy for reuse")
@@ -95,7 +97,7 @@ def main() -> None:
         np.save(RUNS / "_ogmatch_test.npy", match_features(te, og).to_numpy())
 
     spec = json.loads(a.stack.read_text())
-    Z = np.column_stack([to_logit(np.load(RUNS / r / "oof.npy"), np.zeros(1))[0] for r in spec["runs"]])
+    Z, _ = load_members(spec["runs"])
     F = f_tr.to_numpy()
     F = (F - F.mean(axis=0)) / F.std(axis=0)
     fl = folds(y)
@@ -104,8 +106,7 @@ def main() -> None:
         for i_tr, i_va in fl:
             lr = LogisticRegression(C=spec["C"], max_iter=1000).fit(X[i_tr], y[i_tr])
             pred[i_va] = lr.decision_function(X[i_va])
-        fa = [roc_auc_score(y[i_va], pred[i_va]) for _, i_va in fl]
-        print(f"  {name:22s} {roc_auc_score(y, pred):.5f}  folds {np.round(fa, 5).tolist()}", flush=True)
+        print(f"  {name:22s} {CVScore.of(y, pred, fl)}", flush=True)
 
 
 if __name__ == "__main__":

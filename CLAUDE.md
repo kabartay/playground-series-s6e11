@@ -16,7 +16,12 @@ Personal Kaggle entry (not Finkele work). Repository, docs and chat are in Engli
 ## Code
 
 - Run tools with `.venv/bin/python` (Python 3.12, `uv pip install -r requirements.txt`). Scripts live in `src/` and run from there.
-- New code gets type hints and docstrings. Lint with `.venv/bin/ruff check src`.
+- New code gets type hints and docstrings (ruff enforces both). Lint with `.venv/bin/ruff check src scripts tests`;
+  test with `.venv/bin/python -m pytest -q` (synthetic data, no competition files).
+- Shared code lives once: paths, folds, `CVScore`, rank transforms and run files in `common.py`; model families
+  as `Learner` classes in `learners.py`; in-fold encoding in `encoding.py`; zones in `zones.py`. Add a model by
+  adding a class, not a branch.
+- Refactors must not change numbers: rerun the affected commands before and after and compare outputs.
 - Every model writes `runs/<name>/{oof.npy,test.npy,meta.json}` on the shared folds in `src/common.py`; never change the fold seed.
 - Record every run, adopted or not, in the results table of `docs/DESIGN.md`.
 

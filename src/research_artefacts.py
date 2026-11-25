@@ -27,6 +27,7 @@ def rate(mask: np.ndarray, y: np.ndarray) -> str:
 
 
 def main() -> None:
+    """Print the five measurements described in the module docstring."""
     tr, te, og = load()
     y = tr[TARGET].to_numpy()
     print(f"train {len(tr):,}, test {len(te):,}, original {len(og):,}; base fraud {100 * y.mean():.3f}%\n")
@@ -38,13 +39,13 @@ def main() -> None:
         print(f"  {c:24s} {share} | in: {rate(inog, y)} | out: {rate(~inog, y)}")
 
     print("\n2. Rows repeating an original row")
-    key = [c for c in RAW]
+    key = list(RAW)
     ogk = og[key].astype(str).agg("|".join, axis=1)
     trk = tr[key].astype(str).agg("|".join, axis=1)
     full = trk.isin(set(ogk)).to_numpy()
     print(f"  all 24 features: {rate(full, y)}")
     conts = ["amount_usd", "hours_since_last_txn", "distance_from_home_km", "account_balance_usd"]
-    for a, b in itertools.combinations(conts + ["velocity_score", "merchant_risk_score"], 2):
+    for a, b in itertools.combinations([*conts, "velocity_score", "merchant_risk_score"], 2):
         ok = set(zip(og[a], og[b], strict=True))
         m = np.fromiter((p in ok for p in zip(tr[a], tr[b], strict=True)), bool, len(tr))
         print(f"  pair {a} + {b}: {rate(m, y)}")

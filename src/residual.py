@@ -14,26 +14,19 @@ Usage (from src/):
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from common import TARGET, folds, load
-
-THREADS = 4
+from common import TARGET, THREADS, CVScore, folds, load, logit
 
 
-def logit(p: np.ndarray) -> np.ndarray:
-    """Log-odds of probabilities, clipped away from 0 and 1."""
-    p = np.clip(p, 1e-12, 1 - 1e-12)
-    return np.log(p / (1 - p))
-
-
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
+    """Score the residual booster fold by fold; optionally write the corrected submission."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--oof", type=Path, required=True, help="nested OOF stack logits (stack.py --oof-out)")
     ap.add_argument("--sub", type=Path, help="submission CSV of the same stack (probabilities)")
@@ -42,14 +35,16 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=0.02)
     ap.add_argument("--min-leaf", type=int, default=1000)
     ap.add_argument("--l2", type=float, default=10.0)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
 
     tr, te, _ = load()
     y = tr[TARGET].to_numpy()
     X = tr.drop(columns=["id", TARGET])
     Xt = te[X.columns]
     base = np.load(a.oof, allow_pickle=False)
-    assert base.shape == (len(tr),) and np.isfinite(base).all()
+    if base.shape != (len(tr),) or not np.isfinite(base).all():
+        print(f"residual.py: error: {a.oof} must hold {len(tr)} finite scores", file=sys.stderr)
+        return 2
     params = dict(
         objective="binary",
         learning_rate=a.lr,
@@ -64,9 +59,10 @@ def main() -> None:
         seed=0,
     )
 
+    fl = folds(y)
     pred = base.copy()
-    rounds, before, after = [], [], []
-    for i_tr, i_va in folds(y):
+    rounds: list[int] = []
+    for i_tr, i_va in fl:
         i_fit, i_es = train_test_split(i_tr, test_size=0.1, stratify=y[i_tr], random_state=0)
         d_fit = lgb.Dataset(X.iloc[i_fit], y[i_fit], init_score=base[i_fit])
         d_es = lgb.Dataset(X.iloc[i_es], y[i_es], init_score=base[i_es], reference=d_fit)
@@ -75,23 +71,24 @@ def main() -> None:
         )
         pred[i_va] = base[i_va] + b.predict(X.iloc[i_va], num_iteration=b.best_iteration, raw_score=True)
         rounds.append(b.best_iteration)
-        before.append(roc_auc_score(y[i_va], base[i_va]))
-        after.append(roc_auc_score(y[i_va], pred[i_va]))
-    up = sum(x > z for x, z in zip(after, before, strict=True))
+    before, after = CVScore.of(y, base, fl), CVScore.of(y, pred, fl)
     print(f"  leaves {a.leaves} lr {a.lr} min_leaf {a.min_leaf}: rounds {rounds}")
-    print(f"  stack     {roc_auc_score(y, base):.5f}  folds {np.round(before, 5).tolist()}")
-    print(f"  + booster {roc_auc_score(y, pred):.5f}  folds {np.round(after, 5).tolist()}  up {up}/5")
+    print(f"  stack     {before}")
+    print(f"  + booster {after}  up {after.up(before)}/5")
 
     if a.sub is not None and a.out is not None:
         sub = pd.read_csv(a.sub)
-        assert (sub["id"].to_numpy() == te["id"].to_numpy()).all()
-        t0 = logit(sub[TARGET].to_numpy())
-        n = max(1, int(round(np.mean(rounds))))
+        if not np.array_equal(sub["id"].to_numpy(), te["id"].to_numpy()):
+            print(f"residual.py: error: {a.sub} ids differ from test.csv", file=sys.stderr)
+            return 2
+        t0 = logit(sub[TARGET].to_numpy(), eps=1e-12)
+        n = max(1, round(float(np.mean(rounds))))
         b = lgb.train(params, lgb.Dataset(X, y, init_score=base), n)
         sub[TARGET] = 1 / (1 + np.exp(-(t0 + b.predict(Xt, raw_score=True))))
         sub.to_csv(a.out, index=False)
         print(f"wrote {a.out} ({n} rounds)")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -7,4 +7,5 @@ scikit-learn==1.9.1
 scipy
 xgboost==3.4.1
 ruff
+pytest==9.2.0  # tests/ (synthetic data only)
 tiktoken==0.14.0  # MIT; GPT-2 token keys (--keys tokens)

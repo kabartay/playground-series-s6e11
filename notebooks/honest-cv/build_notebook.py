@@ -84,7 +84,7 @@ os.makedirs("src", exist_ok=True)
 os.environ["S6E11_THREADS"] = "4"
 """)
 
-for module in ("common.py", "features.py", "train_gbdt.py"):
+for module in ("common.py", "features.py", "encoding.py", "learners.py", "train_gbdt.py"):
     code(f"%%writefile src/{module}\n" + (SRC / module).read_text())
 
 code(r"""

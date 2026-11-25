@@ -22,44 +22,33 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
 from sklearn.tree import DecisionTreeClassifier
 
-from common import BOOL, CAT_STR, NUM, RUNS, TARGET, folds, load
-from stack import to_logit
-from zones import ZONES, in_zone, refit_edge
-
-Fold = tuple[np.ndarray, np.ndarray]
+from common import BOOL, CAT_STR, NUM, TARGET, CVScore, Fold, folds, load
+from stack import FitScore, load_members, logistic_stacker, nested
+from zones import hand_zones, send_to_bottom
 
 
-def nested(fl: list[Fold], y: np.ndarray, fit_score: Callable[[np.ndarray, np.ndarray], np.ndarray]):
-    """Out-of-fold predictions of fit_score(train_idx, val_idx); returns (pred, cv, fold AUCs)."""
-    pred = np.full(len(y), np.nan)
-    for i_tr, i_va in fl:
-        pred[i_va] = fit_score(i_tr, i_va)
-    fa = [roc_auc_score(y[i_va], pred[i_va]) for _, i_va in fl]
-    return pred, roc_auc_score(y, pred), fa
+def report(name: str, score: CVScore, base: CVScore | None = None) -> None:
+    """Print one result line, with the folds-up count against ``base``."""
+    up = "" if base is None else f"  up {score.up(base)}/5"
+    print(f"  {name:44s} {score}{up}", flush=True)
 
 
-def report(name: str, cv: float, fa: list[float], base: list[float] | None = None) -> None:
-    """Print one result line, with the folds-up count against base."""
-    up = "" if base is None else f"  up {sum(f > b for f, b in zip(fa, base, strict=True))}/5"
-    print(f"  {name:44s} {cv:.5f}  folds {np.round(fa, 5).tolist()}{up}", flush=True)
-
-
-def pair_sample(y: np.ndarray, idx: np.ndarray, n: int, rng: np.random.Generator) -> tuple[np.ndarray, ...]:
-    """n random (fraud, non-fraud) row pairs from idx."""
+def pair_sample(
+    y: np.ndarray, idx: np.ndarray, n: int, rng: np.random.Generator
+) -> tuple[np.ndarray, np.ndarray]:
+    """Draw ``n`` random (fraud, non-fraud) row pairs from ``idx``."""
     pos, neg = idx[y[idx] == 1], idx[y[idx] == 0]
     return rng.choice(pos, n), rng.choice(neg, n)
 
 
-def pairwise_fit(Z: np.ndarray, y: np.ndarray, C: float, n_pairs: int) -> Callable:
+def pairwise_fit(Z: np.ndarray, y: np.ndarray, C: float, n_pairs: int) -> FitScore:
     """Pairwise logistic stacker: weights w maximise sum log sigmoid(w . (z_pos - z_neg))."""
 
     def fit_score(i_tr: np.ndarray, i_va: np.ndarray) -> np.ndarray:
@@ -92,7 +81,7 @@ def segment_codes(tr: pd.DataFrame, kind: str) -> np.ndarray:
     return bands("merchant_risk_score", 3) * 3 + bands("velocity_score", 3)
 
 
-def segment_fit(Z: np.ndarray, y: np.ndarray, seg: np.ndarray, C: float) -> Callable:
+def segment_fit(Z: np.ndarray, y: np.ndarray, seg: np.ndarray, C: float) -> FitScore:
     """Logistic stacker on [Z, Z x one-hot(segment), one-hot(segment)], standardised, L2 at C."""
     k = seg.max() + 1
     oh = np.eye(k, dtype=np.float32)[seg]
@@ -106,9 +95,12 @@ def segment_fit(Z: np.ndarray, y: np.ndarray, seg: np.ndarray, C: float) -> Call
     return fit_score
 
 
-def meta_fits(Z: np.ndarray, y: np.ndarray, C: float, fl: list[Fold]) -> dict[str, Callable]:
-    """Rank-gaussianised members (over all rows, or within each fold as in Deotte's s6e3 stacker), and
-    members plus disagreement columns; each a logistic stacker at C. No transform uses labels."""
+def meta_fits(Z: np.ndarray, y: np.ndarray, C: float, fl: list[Fold]) -> dict[str, FitScore]:
+    """Logistic stackers at C on transformed members; no transform uses labels.
+
+    Rank-gaussianised members (over all rows, or within each fold as in Deotte's s6e3 stacker), members
+    plus disagreement columns (mean, SD and range of member logits), and the standardised control.
+    """
     from scipy.stats import norm, rankdata
 
     G = norm.ppf((rankdata(Z, axis=0) - 0.5) / len(Z))
@@ -117,7 +109,7 @@ def meta_fits(Z: np.ndarray, y: np.ndarray, C: float, fl: list[Fold]) -> dict[st
         F[i_va] = norm.ppf((rankdata(Z[i_va], axis=0) - 0.5) / len(i_va))
     M = np.column_stack([Z.mean(axis=1), Z.std(axis=1), Z.max(axis=1) - Z.min(axis=1)])
 
-    def lr(X: np.ndarray, std: bool) -> Callable:
+    def lr(X: np.ndarray, std: bool) -> FitScore:
         def fit_score(i_tr: np.ndarray, i_va: np.ndarray) -> np.ndarray:
             mu, sd = (X[i_tr].mean(axis=0), X[i_tr].std(axis=0) + 1e-6) if std else (0.0, 1.0)
             m = LogisticRegression(C=C, max_iter=2000).fit((X[i_tr] - mu) / sd, y[i_tr])
@@ -133,15 +125,6 @@ def meta_fits(Z: np.ndarray, y: np.ndarray, C: float, fl: list[Fold]) -> dict[st
     }
 
 
-def hand_zones(tr: pd.DataFrame, y: np.ndarray, i_tr: np.ndarray, i_va: np.ndarray) -> np.ndarray:
-    """Held-out rows inside the four hand zones, edges refitted on the training folds (as zones.py)."""
-    d_tr, d_va = tr.iloc[i_tr], tr.iloc[i_va]
-    z = np.zeros(len(i_va), bool)
-    for _, cond, pub, strict in ZONES:
-        z |= in_zone(d_va, cond, *refit_edge(d_tr, y[i_tr], cond, pub, strict))
-    return z
-
-
 def zone_search(tr: pd.DataFrame, y: np.ndarray, fl: list[Fold], pred: np.ndarray, leaves: list[int]) -> None:
     """Score tree-found zero-fraud leaves on top of the hand zones, fold by fold."""
     X = tr[NUM + BOOL].astype(np.float32).copy()
@@ -149,15 +132,10 @@ def zone_search(tr: pd.DataFrame, y: np.ndarray, fl: list[Fold], pred: np.ndarra
         X[c] = tr[c].cat.codes.astype(np.float32)
     X = X.to_numpy()
     low = pred.min() - 1.0
-
-    hz = pred.copy()
-    hand = []
-    for i_tr, i_va in fl:
-        z = hand_zones(tr, y, i_tr, i_va)
-        hand.append(z)
-        hz[i_va[z]] = low
-    base = [roc_auc_score(y[i_va], hz[i_va]) for _, i_va in fl]
-    report("stack + hand zones", roc_auc_score(y, hz), base)
+    hand = [hand_zones(tr, y, i_tr, i_va) for i_tr, i_va in fl]
+    hz = send_to_bottom(pred, fl, hand)
+    base = CVScore.of(y, hz, fl)
+    report("stack + hand zones", base)
 
     for leaf in leaves:
         p = hz.copy()
@@ -171,48 +149,51 @@ def zone_search(tr: pd.DataFrame, y: np.ndarray, fl: list[Fold], pred: np.ndarra
             rows += z.sum()
             frauds += int(y[i_va][z].sum())
             p[i_va[z]] = low
-        fa = [roc_auc_score(y[i_va], p[i_va]) for _, i_va in fl]
         name = f"+ tree zones, min leaf {leaf} ({rows} new rows, {frauds} fraud)"
-        report(name, roc_auc_score(y, p), fa, base)
+        report(name, CVScore.of(y, p, fl), base)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    """Score the baseline stacker and each requested idea against it, fold by fold."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("stack", type=Path, help="submission JSON with runs and C")
-    ap.add_argument("--ideas", default="pair,segment,zones")
+    ap.add_argument("--ideas", default="pair,segment,zones", help="comma list of pair, segment, meta, zones")
     ap.add_argument("--pairs", type=int, default=300_000)
     ap.add_argument("--leaves", default="500,1000,2000,5000")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     spec = json.loads(a.stack.read_text())
     runs, C = spec["runs"], spec["C"]
     ideas = a.ideas.split(",")
+    unknown = set(ideas) - {"pair", "segment", "meta", "zones"}
+    if unknown:
+        ap.error(f"unknown ideas: {sorted(unknown)}")
 
     tr, _, _ = load()
     y = tr[TARGET].to_numpy()
-    Z = np.column_stack([to_logit(np.load(RUNS / r / "oof.npy"), np.zeros(1))[0] for r in runs])
+    Z, _ = load_members(runs)
     fl = folds(y)
     print(f"{a.stack.name}: {len(runs)} members, C={C:g}", flush=True)
 
-    def lr_fit(i_tr: np.ndarray, i_va: np.ndarray) -> np.ndarray:
-        return LogisticRegression(C=C, max_iter=1000).fit(Z[i_tr], y[i_tr]).decision_function(Z[i_va])
-
-    pred, cv, base = nested(fl, y, lr_fit)
-    report(f"logistic stacker C={C:g} (baseline)", cv, base)
+    pred, base = nested(fl, y, logistic_stacker(Z, y, C))
+    report(f"logistic stacker C={C:g} (baseline)", base)
 
     if "pair" in ideas:
         for pc in (0.01, 0.1, 1.0):
-            _, cv_p, fa = nested(fl, y, pairwise_fit(Z, y, pc, a.pairs))
-            report(f"pairwise stacker C={pc:g}, {a.pairs:,} pairs", cv_p, fa, base)
+            report(
+                f"pairwise stacker C={pc:g}, {a.pairs:,} pairs",
+                nested(fl, y, pairwise_fit(Z, y, pc, a.pairs))[1],
+                base,
+            )
     if "segment" in ideas:
         for kind in ("mr4", "vel4", "mr3xvel3"):
             seg = segment_codes(tr, kind)
             for sc in (0.01, 0.1):
-                _, cv_s, fa = nested(fl, y, segment_fit(Z, y, seg, sc))
-                report(f"segment stacker {kind}, C={sc:g}", cv_s, fa, base)
+                report(
+                    f"segment stacker {kind}, C={sc:g}", nested(fl, y, segment_fit(Z, y, seg, sc))[1], base
+                )
     if "meta" in ideas:
         for name, f in meta_fits(Z, y, C, fl).items():
-            _, cv_m, fa = nested(fl, y, f)
-            report(f"meta stacker: {name}", cv_m, fa, base)
+            report(f"meta stacker: {name}", nested(fl, y, f)[1], base)
     if "zones" in ideas:
         zone_search(tr, y, fl, pred, [int(v) for v in a.leaves.split(",")])
 

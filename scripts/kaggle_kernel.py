@@ -19,6 +19,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -82,52 +83,76 @@ def build(kernel: str, jobs: list[str], out: Path, internet: bool = False, gpu: 
 
 
 def read_jobs(path: Path) -> list[str]:
-    """Parse a jobs file: one argument string per line, # comments allowed."""
+    """Parse a jobs file: one argument string per line, # comments allowed.
+
+    Raises:
+        FileNotFoundError: the file does not exist.
+        ValueError: the file holds no job.
+    """
     lines = [ln.split("#", 1)[0].strip() for ln in path.read_text().splitlines()]
-    return [ln for ln in lines if ln]
+    jobs = [ln for ln in lines if ln]
+    if not jobs:
+        raise ValueError(f"{path} holds no job")
+    return jobs
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
+def fetch(kernel: str) -> None:
+    """Download a kernel's output and copy its run directories into runs/, printing each run's CV."""
+    with tempfile.TemporaryDirectory() as t:
+        subprocess.run(["kaggle", "kernels", "output", f"{USER}/{slug(kernel)}", "-p", t, "-o"], check=True)
+        runs = ROOT / "runs"
+        # Run dirs with meta.json, plus train_lm.py dirs holding only per-fold files (kernel cut short).
+        dirs = {p.parent for p in Path(t).rglob("meta.json")} | {p.parent for p in Path(t).rglob("fold*.npz")}
+        for src in sorted(dirs):
+            dst = runs / src.name
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst)
+            meta = src / "meta.json"
+            if not meta.exists():
+                done = sorted(p.name for p in src.glob("fold*.npz"))
+                print(f"{src.name}: no meta.json, fold files {done}")
+                continue
+            m = json.loads(meta.read_text())
+            print(f"{src.name}: CV {m['cv']:.5f} folds {[round(x, 5) for x in m['folds']]}")
+        logs = sorted(Path(t).glob("*.log"))
+        if logs:
+            shutil.copy(logs[0], runs / f"kernel_{kernel}.log")
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Push, check or fetch one kernel; return the exit status."""
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("action", choices=["push", "status", "fetch"])
     ap.add_argument("--kernel", required=True)
     ap.add_argument("--jobs", type=Path)
     ap.add_argument("--internet", action="store_true", help="needed by train_fintfm.py (pip + checkpoint)")
     ap.add_argument(
-        "--gpu", action="store_true", help="T4 x2 GPU kernel: spends fintfm's weekly quota, owner's OK only"
+        "--gpu",
+        action="store_true",
+        help="T4 x2 GPU kernel: uses the weekly Kaggle GPU quota; state a time estimate first (CLAUDE.md)",
     )
-    a = ap.parse_args()
-    ref = f"{USER}/{slug(a.kernel)}"
-    if a.action == "push":
-        with tempfile.TemporaryDirectory() as t:
-            build(a.kernel, read_jobs(a.jobs), Path(t), a.internet, a.gpu)
-            subprocess.run(["kaggle", "kernels", "push", "-p", t], check=True)
-    elif a.action == "status":
-        subprocess.run(["kaggle", "kernels", "status", ref], check=True)
-    else:
-        with tempfile.TemporaryDirectory() as t:
-            subprocess.run(["kaggle", "kernels", "output", ref, "-p", t, "-o"], check=True)
-            runs = ROOT / "runs"
-            # Run dirs with meta.json, plus train_lm.py dirs holding only per-fold files (kernel cut short).
-            dirs = {p.parent for p in Path(t).rglob("meta.json")} | {
-                p.parent for p in Path(t).rglob("fold*.npz")
-            }
-            for src in sorted(dirs):
-                dst = runs / src.name
-                if dst.exists():
-                    shutil.rmtree(dst)
-                shutil.copytree(src, dst)
-                meta = src / "meta.json"
-                if not meta.exists():
-                    done = sorted(p.name for p in src.glob("fold*.npz"))
-                    print(f"{src.name}: no meta.json, fold files {done}")
-                    continue
-                m = json.loads(meta.read_text())
-                print(f"{src.name}: CV {m['cv']:.5f} folds {[round(x, 5) for x in m['folds']]}")
-            logs = sorted(Path(t).glob("*.log"))
-            if logs:
-                shutil.copy(logs[0], runs / f"kernel_{a.kernel}.log")
+    a = ap.parse_args(argv)
+    if a.action == "push" and a.jobs is None:
+        ap.error("push needs --jobs")
+    try:
+        if a.action == "push":
+            jobs = read_jobs(a.jobs)
+            with tempfile.TemporaryDirectory() as t:
+                build(a.kernel, jobs, Path(t), a.internet, a.gpu)
+                subprocess.run(["kaggle", "kernels", "push", "-p", t], check=True)
+        elif a.action == "status":
+            subprocess.run(["kaggle", "kernels", "status", f"{USER}/{slug(a.kernel)}"], check=True)
+        else:
+            fetch(a.kernel)
+    except (OSError, ValueError) as e:
+        print(f"kaggle_kernel.py: error: {e}", file=sys.stderr)
+        return 2
+    except subprocess.CalledProcessError as e:
+        print(f"kaggle_kernel.py: {' '.join(e.cmd[:3])} exited {e.returncode}", file=sys.stderr)
+        return e.returncode
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

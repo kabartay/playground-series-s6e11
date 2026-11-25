@@ -29,12 +29,17 @@ import os
 import subprocess
 import sys
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-from common import BOOL, CAT_STR, NUM, RUNS, TARGET, _find, folds
+from common import BOOL, CAT_STR, NUM, RUNS, TARGET, find_data, folds, save_run
+
+if TYPE_CHECKING:
+    import torch
+    from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
 # Short, mostly single-token names keep the sequences near 120 tokens.
 SHORT = {
@@ -71,8 +76,8 @@ def read_text_frames(rows: int = 0) -> tuple[pd.DataFrame, pd.DataFrame, np.ndar
 
     `rows` > 0 keeps a stratified subsample of the training rows (smoke tests) and 1,000 test rows.
     """
-    tr = pd.read_csv(_find("train.csv"), dtype=str, keep_default_na=False)
-    te = pd.read_csv(_find("test.csv"), dtype=str, keep_default_na=False)
+    tr = pd.read_csv(find_data("train.csv"), dtype=str, keep_default_na=False)
+    te = pd.read_csv(find_data("test.csv"), dtype=str, keep_default_na=False)
     for df in (tr, te):
         for c in BOOL:
             df[c] = df[c].str.lower().map({"true": "1", "false": "0"}).fillna(df[c])
@@ -87,7 +92,7 @@ def read_text_frames(rows: int = 0) -> tuple[pd.DataFrame, pd.DataFrame, np.ndar
     return tr, te, y
 
 
-def fragments(tok, df: pd.DataFrame) -> list[list[list[int]]]:
+def fragments(tok: PreTrainedTokenizerBase, df: pd.DataFrame) -> list[list[list[int]]]:
     """Token ids of every " name value," fragment: result[col][row] is a list of ids.
 
     Each fragment starts with a space, so concatenating fragment ids in any order tokenizes the same as the
@@ -114,7 +119,7 @@ def build(
     return seqs
 
 
-def pad(seqs: list[list[int]], pad_id: int):
+def pad(seqs: list[list[int]], pad_id: int) -> tuple[torch.Tensor, torch.Tensor]:
     """Right-padded id tensor and attention mask."""
     import torch
 
@@ -127,7 +132,7 @@ def pad(seqs: list[list[int]], pad_id: int):
     return ids, att
 
 
-def seq_loglik(model, ids, att):
+def seq_loglik(model: PreTrainedModel, ids: torch.Tensor, att: torch.Tensor) -> torch.Tensor:
     """Sum of next-token log-probabilities of each sequence (positions after the first), in float32."""
     import torch
 
@@ -244,8 +249,6 @@ def run_fold(a: argparse.Namespace, k: int) -> None:
 
 def merge(a: argparse.Namespace, ks: list[int]) -> None:
     """Combine fold<k>.npz files into the standard run files (oof.npy, test.npy, meta.json)."""
-    from common import save_run
-
     _, te, y = read_text_frames(a.rows)
     d = RUNS / a.name
     oof, test, scores, steps = np.full(len(y), np.nan), np.zeros(len(te)), [], []
@@ -263,6 +266,7 @@ def merge(a: argparse.Namespace, ks: list[int]) -> None:
 
 
 def main() -> None:
+    """Train the requested folds (one worker process per GPU), or merge fold files from pods."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", required=True)
     ap.add_argument("--model", default="gpt2", help="Hugging Face causal LM id")

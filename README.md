@@ -5,256 +5,220 @@
 ![LightGBM 4.7](https://img.shields.io/badge/LightGBM-4.7-blue.svg)
 ![XGBoost 3.4](https://img.shields.io/badge/XGBoost-3.4-blue.svg)
 ![CatBoost 1.2](https://img.shields.io/badge/CatBoost-1.2-blue.svg)
-![Validation: 5-fold CV](https://img.shields.io/badge/validation-5--fold%20CV-informational.svg)
+![Validation: nested 5-fold CV](https://img.shields.io/badge/validation-nested%205--fold%20CV-informational.svg)
 
-A personal entry to the Kaggle competition
-[Playground Series, Season 6 Episode 11: Predicting Credit Card Fraud](https://www.kaggle.com/competitions/playground-series-s6e11),
-developed in the open while the competition runs.
+A personal entry to
+[Playground Series S6E11: Predicting Credit Card Fraud](https://www.kaggle.com/competitions/playground-series-s6e11),
+developed in the open. Every run is recorded, including the many that did not help.
 
-Given 24 attributes of a card transaction (amount, timing, velocity, distance from home, merchant risk,
-authentication method, device, VPN use and other flags), predict the probability that it is fraudulent.
-About 1.7% of the 699,960 training transactions are fraud. Submissions are scored by ROC-AUC on 299,984
-test transactions; the competition closes on 2026-11-30.
+The task: given 24 attributes of a card transaction (amount, timing, velocity, distance from home, merchant
+risk, authentication method, device, VPN use and other flags), predict the probability that it is fraud.
+1.67% of the 699,960 training rows are fraud. Submissions are scored by ROC-AUC on 299,984 test rows. The
+competition closes on 2026-11-30.
 
-> **Status (2026-11-17):** best own-model stack 5-fold CV ROC-AUC **0.95138** (nested CV); best single model 0.95096
-> (GLM boost: 4-leaf LightGBM started from an in-fold logistic model on pooled artefacts, target encodings
-> of exact values and digit keys at three smoothing weights, and joint keys, with key counts). Best submissions:
-> own models CV 0.95138, public 0.95160; with public members CV 0.95249, public 0.95284.
+> **Status (2026-11-25).** The two final picks are marked on Kaggle:
+>
+> | Final pick | Nested 5-fold CV | Public LB |
+> | :--- | ---: | ---: |
+> | `stack_pub4wz`: mean of four independently built nested stacks + zero-fraud zones | **0.95273** | **0.95325** |
+> | `stack_pubwz`: our stack averaged with a public wide stack + zero-fraud zones | 0.95263 | 0.95293 |
+>
+> Our own models alone reach 0.95143 CV (0.95164 public). The private score is not known until the close.
 
 ## Contents
 
 - [Approach](#approach)
 - [Results](#results)
-- [What worked and what did not](#what-worked-and-what-did-not)
-- [FinTFM](#fintfm)
-- [Quick start](#quick-start)
-- [Commands](#commands)
+- [What did not help](#what-did-not-help)
 - [Validation](#validation)
-- [Repository layout](#repository-layout)
+- [Quick start](#quick-start)
+- [Code](#code)
 - [Documentation](#documentation)
+- [FinTFM](#fintfm)
 - [Licences and data](#licences-and-data)
 - [Acknowledgements](#acknowledgements)
 
 ## Approach
 
 ```
-train.csv (699,960 rows) ──► 5 fixed stratified folds ──► for each fold:
-                                                            in-fold target encoding of exact values
-                                                            and digit keys (fitted on training rows only)
-                                                            │
-                                    ┌───────────────────────┼───────────────────────┐
-                                    ▼                       ▼                       ▼
-                             GLM (logistic)        4-leaf LightGBM         GLM boost (trees that
-                                    │                       │              start from the GLM logit)
-                                    └───────────── out-of-fold + test predictions ──┘
-                                                            │
-                                                            ▼
-                                              stack scored by nested CV ──► submission
+train.csv ──► 5 fixed stratified folds ──► per fold, fitted on the training rows only:
+                                              target encoding of exact values, digits, tokens, joint keys
+                                                              │
+                                       ┌──────────────────────┼───────────────────────┐
+                                       ▼                      ▼                       ▼
+                                 GLM (logistic,      GLM boost: 4-leaf LightGBM,   RealMLP, MLP,
+                                 splines)            XGBoost, CatBoost started     plain shallow trees
+                                       │             from the GLM's logit                 │
+                                       └──────── out-of-fold + test predictions ──────────┘
+                                                              │
+                         own models ──► nested logistic stack ◄── fold-checked public members
+                                                              │
+                     equal-weight mean with three public nested stacks (logit ranks, no fitting)
+                                                              │
+                                     zero-fraud zones, edges refitted in each fold ──► submission
 ```
 
-1. **One validation scheme for everything.** Five stratified folds over the training rows, fixed seed.
-   Every model writes out-of-fold (OOF) predictions on these folds, so models can be stacked without
-   leakage, and every decision is made on CV, not on the public leaderboard.
-2. **Encode what the generator left behind.** The data is synthetic. Its generator reuses the original
-   dataset's values, and the exact value of a column, its cents, its integer part and its leading digits
-   all carry fraud signal that a tree cannot express with range splits. Each becomes a category,
-   target-encoded inside the fold.
-3. **Simple models on rich encodings.** Very shallow trees (4 leaves) and a logistic regression do as
-   well as or better than deep trees on these features; trees that start from the logistic model's
-   prediction combine both.
-4. **Stack, honestly.** A logistic stacker over OOF predictions, its own score measured by nested CV.
+1. **One validation scheme for everything.** Five stratified folds, fixed seed. Every model writes
+   out-of-fold (OOF) predictions on them, every stack is scored by nested CV, and every decision is made
+   on CV, not on the public leaderboard.
+2. **Encode what the generator left behind.** The data is synthetic and its generator reuses the values
+   of a 20,000-row original dataset. A column's exact value, its cents, its integer part, its leading
+   digits and how often it occurs all carry fraud signal that range splits cannot express. Each becomes a
+   category, target-encoded inside the fold.
+3. **Simple models on rich encodings.** A regularised logistic regression (GLM) on the encodings, then
+   4-leaf trees that start from its logit. The signal is largely additive: shallow beats deep.
+4. **Diversity over volume.** Members that err differently (language models, RealMLPs, GLMs) earn stack
+   weight; seed bags and near-duplicates do not.
+5. **Average independent stacks.** Four nested stacks built by different authors on the same folds agree
+   at rank correlation 0.996 to 0.998 out of fold but only 0.992 to 0.999 on test. Their fit-free mean
+   removes some of that test-side variance.
 
 ## Results
 
-5-fold CV ROC-AUC on the training rows. Full table, including every run that did not help, in
+Nested 5-fold CV ROC-AUC on the training rows. Each step is adopted only if CV rises and at least four of
+five folds rise. The full table, with every failed run, is in
 [docs/DESIGN.md](docs/DESIGN.md#results-at-a-glance).
 
-| Model | Features | CV ROC-AUC |
-| :--- | :--- | :--- |
-| Same + zero-fraud zones sent to the bottom (D27) |  | **0.95254** |
-| Logistic stack: goodpjw2008's nested wide LM stack + our 21 models (D21) |  | 0.95249 |
-| Logistic stack: our 21 models + 152 public OOF members (D20) |  | 0.95225 |
-| Logistic stack: our 21 models + 52 public OOF members (D19) |  | 0.95204 |
-| Logistic stack: our 21 models + 38 public OOF members (D17) |  | 0.95183 |
-| Logistic stack: our 9 models + 38 public OOF members (D15) |  | 0.95175 |
-| Logistic stack of 24 own models + zero-fraud zones (D27) |  | 0.95143 |
-| Logistic stack of 24 own models (round twelve: + two RealMLPs on embedded value buckets) |  | 0.95138 |
-| Same, RealMLPs trained on all rows (round sixteen; not adopted, D23) |  | 0.95137 |
-| Same as round twelve + own GPT-2 language model (round fourteen; not adopted, D24) |  | 0.95134 |
-| Logistic stack of 22 own models (round eleven: boosters early-stopped inside the training fold) |  | 0.95133 |
-| Logistic stack of 22 own models (round ten: + GLM with GPT-2 token keys) |  | 0.95132 |
-| Same as round twelve + three-epoch GPT-2 (round eighteen; not adopted, D26) |  | 0.95131 |
-| Logistic stack of 21 own models (round eight) |  | 0.95114 |
-| Logistic stack of 14 own models (round seven) |  | 0.95107 |
-| GLM boost: 4-leaf LightGBM from the GLM's logit | + artefacts, TE at m 5/20/100, joint keys, key counts | 0.95096 |
-| GLM boost: XGBoost depth 2 from the GLM's logit | same | 0.95094 |
-| GLM boost: CatBoost depth 4 from the GLM's logit | same | 0.95090 |
-| Logistic stack of 9 own models (round five) |  | 0.95079 |
-| GLM boost: 4-leaf LightGBM from the GLM's logit | + joint keys, key counts | 0.95078 |
-| GLM boost | + pooled artefacts, TE at m 5/20/100 | 0.95076 |
-| Logistic stack of 7 own models (round four) |  | 0.95071 |
-| Logistic stack of 5 own models (round four) |  | 0.95066 |
-| Logistic stack of round-three and round-two models |  | 0.95063 |
-| GLM boost, 3 seeds averaged | m-estimate encoding + full digit keys | 0.95062 |
-| CatBoost depth 4 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95057 |
-| GLM boost | m-estimate encoding + full digit keys | 0.95056 |
-| GLM + cubic splines on the numeric columns | + pooled artefacts, TE at m 5/20/100 | 0.95053 |
-| XGBoost depth 2 started from the GLM's logit | m-estimate encoding + full digit keys | 0.95049 |
-| LightGBM, 4 leaves | m-estimate encoding + full digit keys | 0.95023 |
-| GLM + cubic splines on the numeric columns | m-estimate encoding + full digit keys | 0.95015 |
-| GLM (L2 logistic) | m-estimate encoding + full digit keys | 0.94987 |
-| Logistic stack of 7 round-one and round-two models |  | 0.94952 |
-| XGBoost, depth 2 | in-fold target encoding + pairs | 0.94926 |
-| LightGBM, 4 leaves | in-fold target encoding + pairs | 0.94923 |
-| LightGBM, 31 leaves | + in-fold target encoding | 0.94854 |
-| Logistic stack of 8 round-one models |  | 0.94728 |
-| MLP (64-32) on the spline GLM design | logit encodings + splines | 0.94715 |
-| LightGBM, 31 leaves | + decimal digits | 0.94712 |
-| LightGBM, 31 leaves | raw columns | 0.94690 |
+| Step | CV ROC-AUC |
+| :--- | ---: |
+| LightGBM, 31 leaves, raw columns | 0.94690 |
+| + in-fold target encoding of exact values | 0.94854 |
+| 4-leaf LightGBM on target encoding and pairs | 0.94923 |
+| GLM on m-estimate encodings and the digit-key family | 0.94987 |
+| GLM boost: 4-leaf LightGBM started from the GLM's logit | 0.95056 |
+| + pooled artefacts, encodings at three smoothing weights | 0.95076 |
+| + joint keys of non-additive column pairs, key counts (best single models: 0.95096 to 0.95098) | 0.95096 |
+| Logistic stack of 24 own models | 0.95138 |
+| + zero-fraud zones (`stack_r12z`) | 0.95143 |
+| Own 21 models + a public nested wide stack (`stack_pub5`) | 0.95249 |
+| + zero-fraud zones (`stack_pub5z`) | 0.95254 |
+| Fit-free mean with the wide stack + zones (`stack_pubwz`, final pick) | 0.95263 |
+| Fit-free mean of four nested stacks + zones (`stack_pub4wz`, final pick) | **0.95273** |
 
-Best first.
+Selected submissions (all are listed in [docs/COMPETITION.md](docs/COMPETITION.md#our-submissions)):
 
-Leaderboard submissions:
+| Date | Submission | CV | Public LB |
+| :--- | :--- | ---: | ---: |
+| 2026-11-21 | `stack_pub4wz`, final pick | 0.95273 | 0.95325 |
+| 2026-11-20 | `stack_pubwz`, final pick | 0.95263 | 0.95293 |
+| 2026-11-19 | `stack_pub5z` | 0.95254 | 0.95288 |
+| 2026-11-19 | `stack_r12z`, own models only | 0.95143 | 0.95164 |
+| 2026-11-16 | Logistic stack of nine own models | 0.95079 | 0.95113 |
+| 2026-11-03 | LightGBM, default settings (baseline) | 0.9427 (holdout) | 0.94578 |
 
-| Date | Submission | Validation | Public LB |
-| :--- | :--- | :--- | :--- |
-| 2026-11-18 | Logistic stack of 24 own models (round twelve: + two RealMLPs) | 0.95138 (5-fold CV) | 0.95160 |
-| 2026-11-17 | Logistic stack: our 21 models + goodpjw2008's nested wide LM stack (D21) | 0.95249 (5-fold CV) | 0.95284 |
-| 2026-11-17 | Logistic stack of 22 own models (round ten) | 0.95132 (5-fold CV) | 0.95134 |
-| 2026-11-17 | Logistic stack: our 21 models + 152 public OOF members (D20) | 0.95225 (5-fold CV) | 0.95219 |
-| 2026-11-17 | Logistic stack: our 21 models + 52 public OOF members (D19) | 0.95204 (5-fold CV) | 0.95190 |
-| 2026-11-17 | Logistic stack: our 21 models + 38 public OOF members | 0.95183 (5-fold CV) | 0.95164 |
-| 2026-11-17 | Logistic stack of 21 own models (round eight) | 0.95114 (5-fold CV) | 0.95123 |
-| 2026-11-17 | The same 9 plus 38 public OOF members (D15) | 0.95175 (5-fold CV) | 0.95165 |
-| 2026-11-16 | Logistic stack of 9 (GLM boost ×3 families, 4-leaf LightGBM, spline GLM, MLP) | 0.95079 (5-fold CV) | 0.95113 |
-| 2026-11-16 | Logistic stack of 7 round-one and round-two models | 0.94952 (5-fold CV) | 0.94982 |
-| 2026-11-03 | FinTFM zero-shot, 2,000-row context | 0.8759 (20% holdout) | 0.88790 |
-| 2026-11-03 | LightGBM, default settings | 0.9427 (20% holdout) | 0.94578 |
+Independent CV-backed stacks on these folds meet near 0.9526, and averaging four of them reaches 0.95273.
+The public files above about 0.954 that we read were steered by the public board, not validated on
+labelled rows ([docs/FINDINGS.md §7.4](docs/FINDINGS.md#74-an-honest-ceiling-near-09526-and-a-board-wall)).
 
-## What worked and what did not
+## What did not help
 
-| Idea | Effect on CV | Verdict |
-| :--- | :--- | :--- |
-| In-fold target encoding of exact values, rounded keys and cents | +0.0016, 5 of 5 folds | adopted |
-| Very shallow trees (4 leaves or depth 2) instead of 31 leaves | +0.0006 to +0.0008, 5 of 5 folds | adopted |
-| GLM boost with m-estimate encoding and full digit keys, against the best round-two tree | +0.0013, 5 of 5 folds | adopted |
-| Stacker choice (rank average, logistic at C 0.01-1, hill climbing) | within 0.00002 of each other | members matter, not the stacker |
-| Stacking round-three models together | +0.00007 over GLM boost alone | members too alike; need diversity |
-| GLM: cubic splines (8 knots) on quantile-transformed numeric columns | +0.00028, 5 of 5 folds | adopted |
-| GLM boost: 3 seeds averaged | +0.00006, 4 of 5 folds | adopted |
-| GLM: C 0.003 or 0.03 instead of 0.01 | -0.00012 to 0.00000 | dropped |
-| GLM: 10-way instead of 5-way inner cross-fit of the encoder | -0.00002 | dropped |
-| GLM boost: learning rate 0.015 with feature fraction 0.3 | -0.00001 | dropped |
-| GLM boost: 8 leaves instead of 4 | -0.00006 | dropped |
-| XGBoost and CatBoost GLM boost as extra stack members | stack +0.00005 | adopted for diversity |
-| GLM boost started from the spline GLM | -0.00002 alone; stack +0.00006 | stack member |
-| 4-leaf LightGBM, 3 seeds | +0.0001 | adopted |
-| GLM splines with 16 knots instead of 8 | -0.00009 | dropped |
-| MLP on the spline GLM design | 0.94715 alone; stack +0.00003 | stack member |
-| CatBoost GLM boost at depth 6 instead of 4 | -0.00009 | dropped |
-| Public OOF members (38, fold-checked) added to our 9 | stack +0.00096 | second track (D15) |
-| Pooled artefacts (counts, values absent from the original, copied pairs) + TE at m 5/20/100 | GLM +0.00038, GLM boost +0.00020, 5 of 5 | adopted |
-| Joint keys of non-additive column pairs, counts of every key | GLM +0.00028, GLM boost +0.00022 | adopted |
-| 45 pair keys in the GLM | +0.00009 | dropped |
-| All round-seven features in XGBoost and CatBoost GLM boost | +0.00045 and +0.00033, 5 of 5 | adopted |
-| MLP on the full round-seven design | -0.00049 | dropped |
-| 3-seed bags of the round-eight trees | single models +0.00000 to +0.00002; stacks -0.00001 to -0.00004 | dropped |
-| 14 more public members: target-first language models, TabPFN, GLMs (CC0) | stack +0.00021, 5 of 5 | second track (D19) |
-| First and second decimal digits as plain features | +0.0002 | small |
-| 45 pair encodings among the ten strongest columns | -0.0001 | dropped |
-| Original dataset appended to training folds | -0.0001 | dropped |
-| Fraud rates per value from the original dataset | -0.0001 to -0.0005 | dropped |
-| A model trained on the original only, as a feature | -0.0012 | dropped |
-| FinTFM (balanced context) blended with LightGBM | -0.0005 to +0.0001 | not used in the stack |
+Each was measured on the shared folds and rejected by the 4-of-5 rule. Details are in
+[docs/FINDINGS.md §6](docs/FINDINGS.md#6-negative-results).
 
-## FinTFM
+| Idea | Result |
+| :--- | :--- |
+| Original rows appended to each training fold | -0.0001 |
+| Original-data fraud rates, or a model trained on the original, as features | -0.0002 to -0.0013 |
+| Deeper trees (8 leaves; CatBoost depth 6) | -0.00006 to -0.00009 |
+| Seed bags of members already in the stack | stack -0.00002 to +0.00001 |
+| Own target-first GPT-2 member (1 and 3 epochs) | stack -0.00003 to -0.00007 |
+| Pairwise, segment, rank-gaussian and disagreement stackers | never above the logistic stacker |
+| Residual booster on the stack's logit; tree-found zero-fraud leaves | stops after 1 to 7 rounds; leaves still hold fraud |
+| MinMax tail selection | never gains, at any threshold |
+| XGBoost `rank:pairwise` objective | stack 0.95246, 1 of 5 folds up |
+| FinTFM linear readout as a member | 0.94054 alone; lowers both stacks |
+| Undersampling bags (all frauds, 25% of legitimate rows) | stack 1 of 5 folds up |
+| Mean and SD per exact value (IEEE-CIS-style client aggregates) | -0.0008, 0 of 5 |
+| Isolation Forest and PCA reconstruction error | 0.81 alone with no labels; stack 2 of 5 folds up |
+| Bagged stack, nested weights, G-mean, median or least-correlated blends of the stacks | 0.95268 to 0.95273, at most 3 of 5 |
 
-[FinTFM](https://github.com/kabartay/fintfm) is a small tabular foundation model by the same author: it
-predicts a row from labelled example rows in one forward pass, with no training on the competition data.
-Here it was probed as a stack member. On one fold its best context strategy (`balanced`) scores 0.90679,
-against 0.93666 for LightGBM on the same rows, and it does not improve the trees in a blend
-([docs/DESIGN.md](docs/DESIGN.md#d8-fintfm-probe-balanced-context-is-best-but-it-does-not-lift-the-trees)).
-The notebook's first full run on a 20,000-row holdout: best setting (balanced 2,000-row context, 4
-contexts ensembled) 0.9089 against 0.9356 for default LightGBM; measured table in
-[notebooks/fintfm-starter/README.md](notebooks/fintfm-starter/README.md).
+## Validation
 
-[`notebooks/fintfm-starter/`](notebooks/fintfm-starter/) holds an educational
-[Kaggle notebook](https://www.kaggle.com/code/muhakabartay/fintfm-starter-playground-series-s6e11) (public) built
-around it: how in-context learning works on a table, how context size and the choice of context rows
-change the result, partitioned contexts, ensembling, and a measured comparison with LightGBM.
+- `StratifiedKFold(5, shuffle=True, random_state=42)` over the competition rows only (`src/common.py`).
+  Original rows never enter validation.
+- Anything fitted on labels (target encoders, the GLM behind GLM boost, stackers, zone edges) is fitted on
+  the fold's training rows only. The training rows' own encodings are cross-fitted inside the fold.
+- Since D22, boosters choose their rounds on a 10% holdout of the training fold (`--es inner`), never on
+  the scored fold.
+- Imported public predictions must match our folds row by row and the AUC their authors report.
+- A change is adopted when OOF ROC-AUC improves and at least four of five folds improve.
+- The public board holds about a thousand fraud rows. Its differences of a few ten-thousandths are noise,
+  so it is a sanity check, not a selector. Adversarial validation cannot tell train from test (AUC 0.500).
 
 ## Quick start
 
 Requires Python 3.12, [uv](https://docs.astral.sh/uv/) and a configured
-[Kaggle API](https://github.com/Kaggle/kaggle-api) token.
+[Kaggle API](https://github.com/Kaggle/kaggle-api) token. Download the data as described in
+[docs/DATA.md](docs/DATA.md); nothing in `data/` is committed.
 
 ```bash
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r requirements.txt
-# download the data as described in docs/DATA.md, then:
+.venv/bin/python -m pytest -q                # unit tests, synthetic data, about 15 s
+.venv/bin/ruff check src scripts tests       # lint
+
 cd src
-../.venv/bin/python train_gbdt.py --model glm --te single --keys full --te-smooth 20 --orig 0 --name glm
-../.venv/bin/python stack.py glm lgb_digits_te1 --out ../submissions/stack.csv
+# GLM boost with honest early stopping: run r11_gb_all_kc, CV 0.95092 (writes runs/<name>/)
+../.venv/bin/python train_gbdt.py --model lgb --offset glm --fe art --orig 0 --te single --keys full \
+    --te-smooth 5,20,100 --joint glm --key-counts --es inner --name r11_gb_all_kc --params \
+    '{"num_leaves":4,"learning_rate":0.03,"feature_fraction":0.5,"min_child_samples":100,"lambda_l2":1.0,"n_estimators":20000}'
+# A one-fold smoke test on 20,000 rows saves nothing
+../.venv/bin/python train_gbdt.py --model glm --te single --keys full --orig 0 --rows 20000 --folds 1 --name smoke
+# Nested-CV stack of saved runs, its OOF scores, a submission, then zones
+../.venv/bin/python stack.py RUN [RUN ...] --no-hill --C 0.1 --oof-out ../runs/s_oof.npy --out ../submissions/s.csv
+../.venv/bin/python zones.py --oof ../runs/s_oof.npy --sub ../submissions/s.csv --out ../submissions/s_z.csv
 ```
 
-## Commands
+Long runs go to private Kaggle CPU kernels: `scripts/queue_kernel.sh K` runs every line of `jobs/K.txt`
+when a slot frees and fetches the runs. Environment variables: `S6E11_THREADS` (default 4), `S6E11_DATA`,
+`S6E11_RUNS`.
 
-| Command | What it does |
+## Code
+
+Scripts live in `src/` and run from there. Every model writes `runs/<name>/{oof.npy,test.npy,meta.json}`
+on the shared folds, so any set of runs can be stacked.
+
+| Module | Role |
 | :--- | :--- |
-| `src/train_gbdt.py --model {lgb,xgb,cat,glm} --name N` | 5-fold CV; writes `runs/N/{oof,test}.npy` and `meta.json` |
-| `  --fe {raw,digits,ogte,combo,count,ogmodel}` | feature set (`src/features.py`) |
-| `  --te {none,single,pairs} --keys {basic,full} --te-smooth {auto,20}` | in-fold target encoding: which keys, which smoothing |
-| `  --offset glm` | GLM boost: the trees (LightGBM, XGBoost or CatBoost) start from the in-fold GLM's logit |
-| `  --seeds K --te-cv 10` | average K seeds per fold; inner cross-fitting folds of the encoder |
-| `  --rows 20000 --folds 1` | smoke test on a stratified subsample; saves nothing |
-| `  --orig W` | weight of the original rows in each training fold (0 drops them) |
-| `  --params '{"num_leaves": 4}' --folds 1` | model overrides; a one-fold check that saves nothing |
-| `src/import_public.py` | import public OOF/test predictions from `data/public/` as `runs/pub_*`, after fold and AUC checks |
-| `src/research_artefacts.py` | measure pooled generator artefacts (values absent from the original, copied pairs, value counts) |
-| `src/stack.py RUN [RUN ...] [--method {logistic,hill}] [--out FILE]` | rank average, logistic stacks and hill climbing, each scored by nested CV; optional submission |
-| `src/train_fintfm.py --strategy balanced --folds 1 --rows 20000 --name N` | FinTFM zero-shot on the shared folds |
-| `scripts/queue_kernel.sh K [--internet]` | run `jobs/K.txt` in a private Kaggle CPU kernel when a slot frees, then fetch `runs/` |
-| `scripts/kaggle_kernel.py {push,status,fetch} --kernel K` | the same steps one at a time |
+| `common.py` | paths, columns, data loading, the fixed folds, `CVScore`, rank transforms, run files |
+| `features.py` | feature sets (`--fe`) and target-encoding keys: exact values, digits, GPT-2 tokens, joint keys |
+| `encoding.py` | `FoldEncoder`: in-fold, cross-fitted target encoding; hierarchical encodings; key counts |
+| `learners.py` | one `Learner` class per model family (GLM, MLP, RealMLP, LightGBM, XGBoost, CatBoost) |
+| `train_gbdt.py` | the CV driver: command line, option checks, fold loop, seed and undersampling bags |
+| `stack.py` | rank average, logistic and hill-climbing stackers, each scored by nested CV |
+| `zones.py` | zero-fraud zones with edges refitted in each fold |
+| `stack_average.py` | fit-free mean of nested stacks on logit ranks (`stack_pub4wz`) |
+| `import_public.py` | imports public OOF banks after fold, shape and AUC checks |
+| `stack_ideas.py`, `minmax_tails.py`, `residual.py` | stacker experiments (D28, D29) |
+| `adv_val.py`, `research_artefacts.py`, `research_ogmatch.py` | measurements: train/test shift, generator artefacts |
+| `train_lm.py` | target-first GPT-2 member (GPU; launched on RunPod by `scripts/runpod_lm.py`) |
+| `train_fintfm.py`, `train_readout.py`, `probe_readout.py` | FinTFM members and probes |
 
-Environment variables: `S6E11_THREADS` (default 4), `S6E11_DATA`, `S6E11_RUNS`.
-
-## Validation
-
-- Five-fold `StratifiedKFold(shuffle=True, random_state=42)` over the competition rows only.
-- Anything fitted on labels (target encoders, the GLM behind GLM boost) is fitted on the fold's training
-  rows only; encodings of those rows are themselves cross-fitted.
-- A change is adopted when OOF ROC-AUC improves and at least four of five folds improve.
-- The public leaderboard holds roughly a thousand fraud rows, so public differences of a few thousandths
-  are within noise; it is a sanity check, not a selector.
-
-## Repository layout
-
-```
-src/
-  common.py           data loading, the fixed folds, run saving
-  features.py         feature sets and the target-encoding keys (exact values, digit family, pairs)
-  train_gbdt.py       5-fold CV for LightGBM / XGBoost / CatBoost / GLM, with in-fold encoding
-  train_fintfm.py     FinTFM zero-shot predictions on the same folds
-  stack.py            rank average and nested-CV logistic stack; writes a submission
-scripts/
-  kaggle_kernel.py    bundles src/ and a job list into a private Kaggle kernel; push, status, fetch
-  queue_kernel.sh     push when a CPU slot frees, then watch and fetch
-  watch_kernels.sh    fetch each kernel's runs when it completes
-jobs/                 job lists, one per kernel (each line is one train_*.py call)
-notebooks/
-  fintfm-starter/     educational FinTFM notebook (generated by build_notebook.py)
-docs/                 competition, data and design notes
-runs/                 per-run OOF and test predictions (not committed)
-data/                 competition and original data (not committed)
-```
+`scripts/kaggle_kernel.py` bundles `src/` and a job list into a private Kaggle kernel, then pushes it,
+checks its status or fetches its runs. `tests/` holds unit tests for the shared modules: no leakage
+through the encoder, every model family, option checks, zones and import checks. They run on synthetic
+data, with no competition files.
 
 ## Documentation
 
 | File | Contents |
 | :--- | :--- |
-| [docs/DESIGN.md](docs/DESIGN.md) | results table, every decision and finding, what the public notebooks measured |
+| [docs/FINDINGS.md](docs/FINDINGS.md) | the paper-style wrap-up: method, results, negative results, threats to validity |
+| [docs/DESIGN.md](docs/DESIGN.md) | the lab notebook: every run and decision, D1 to D32 |
+| [docs/COMPETITION.md](docs/COMPETITION.md) | metric, deadline, how to read the leaderboard, every submission |
 | [docs/DATA.md](docs/DATA.md) | files, columns, measured facts, download commands |
-| [docs/COMPETITION.md](docs/COMPETITION.md) | metric, deadline, how to read the leaderboard, our submissions |
+
+## FinTFM
+
+[FinTFM](https://github.com/kabartay/fintfm) is a small tabular foundation model by the same author. It
+predicts a row from labelled example rows in one forward pass. It was tested here as a stack member: zero-shot
+it reaches 0.907 on a fold against 0.937 for LightGBM, and its 1.0.0 linear readout reaches 0.94054 CV. Neither
+improves the stack ([D8](docs/DESIGN.md#d8-fintfm-probe-balanced-context-is-best-but-it-does-not-lift-the-trees),
+D29). [`notebooks/fintfm-starter/`](notebooks/fintfm-starter/) builds a public, educational
+[Kaggle notebook](https://www.kaggle.com/code/muhakabartay/fintfm-starter-playground-series-s6e11) on
+in-context learning for tables. [`notebooks/honest-cv/`](notebooks/honest-cv/) builds
+[a second one](https://www.kaggle.com/code/muhakabartay/s6e11-own-models-only-honest-5-fold-cv) with six of our
+own models, a nested stack and the zones.
 
 ## Licences and data
 
@@ -263,28 +227,36 @@ data/                 competition and original data (not committed)
   [competition rules](https://www.kaggle.com/competitions/playground-series-s6e11/rules).
 - Original dataset: not included;
   [CC0-1.0](https://www.kaggle.com/datasets/uditjain13/credit-card-fraud-detection-2026).
+- Public predictions used as stack members stay in `data/public/` and are never committed. Their licences
+  are listed in [docs/FINDINGS.md §10](docs/FINDINGS.md#10-credits-and-licences).
 
 ## Acknowledgements
 
 Thanks to Kaggle for the Playground Series and to the author of the original Credit Card Fraud Detection
-2026 dataset. The round-three recipe follows measurements published in public notebooks by
-[Georgy Mamarin](https://www.kaggle.com/code/georgymamarin/s6e11-fraud-glm-offset-trees-review-budgets),
-[Alex Chilton](https://www.kaggle.com/code/alexchilton/credit-card-fraud-lb-0-9542-shallow-tree-stack) and
-[evgendvorkin](https://www.kaggle.com/code/evgendvorkin/s6e11-deep-eda-artifacts-xgb-oof-0-950285); the
-code here is written independently. Joint keys and key counts follow measurements published in
-[megayak's notebook](https://www.kaggle.com/code/megayak/s6e11-per-value-digit-te-shallow-tree-stack) (Apache-2.0).
-The public-member stacks use out-of-fold predictions published by
-[goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0; also its
-[compact LM](https://www.kaggle.com/datasets/goodpjw2008/s6e11-compact-lm-seed7) and
-[GPT-2 seed 2026](https://www.kaggle.com/datasets/goodpjw2008/s6e11-target-first-gpt2-seed-2026) and the nested
-[wide LM stack](https://www.kaggle.com/datasets/goodpjw2008/s6e11-fraud-series-artifacts)),
-[yekenot's RealMLP](https://www.kaggle.com/code/yekenot/ps-s6-e11-realmlp-pytabkit) notebook outputs,
-[Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0; 16 public
-members collected from other notebooks, named after their authors in the bundle),
-[busyaprime](https://www.kaggle.com/datasets/busyaprime/s6e11-33-own-members) (CC0),
-[dariushafshar](https://www.kaggle.com/datasets/dariushafshar/s6e11-golem-oof-library) (CC0),
-[alexchilton](https://www.kaggle.com/datasets/alexchilton/s6e11-oof-predictions) (CC0),
-[mathsonchain](https://www.kaggle.com/datasets/mathsonchain/s6e11-fraud-oof-test-17-single-models) (CC BY 4.0) and
-[Masaya Kawamata](https://www.kaggle.com/datasets/masayakawamata/s6e11-gpt2-target-first-oof) (CC BY 4.0; GPT-2
-target-first method by Chris Deotte, replica step after Borisov et al., GReaT, ICLR 2023). The FinTFM notebook takes its shape from
+2026 dataset. All code here is written independently. Ideas came from public notebooks read as text:
+
+- **Encoding recipe and generator artefacts:**
+  [Georgy Mamarin](https://www.kaggle.com/code/georgymamarin/s6e11-fraud-glm-offset-trees-review-budgets),
+  [Alex Chilton](https://www.kaggle.com/code/alexchilton/credit-card-fraud-lb-0-9542-shallow-tree-stack) and
+  [evgendvorkin](https://www.kaggle.com/code/evgendvorkin/s6e11-deep-eda-artifacts-xgb-oof-0-950285).
+- **Joint keys and key counts:**
+  [megayak](https://www.kaggle.com/code/megayak/s6e11-per-value-digit-te-shallow-tree-stack) (Apache-2.0).
+- **Zero-fraud zones:** daoviet, goodpjw2008 and Weni Mohamed.
+
+Out-of-fold predictions came from:
+
+- [goodpjw2008](https://www.kaggle.com/datasets/goodpjw2008/s6e11-oof-bank) (CC0), including the nested
+  [wide LM stack](https://www.kaggle.com/datasets/goodpjw2008/s6e11-fraud-series-artifacts);
+- the stacks of DavutKursun (*The 0.9526 Wall*) and dhananjayk2609 (*Part 3: Final Blend*), notebook outputs
+  under Apache-2.0;
+- [yekenot's RealMLP](https://www.kaggle.com/code/yekenot/ps-s6-e11-realmlp-pytabkit);
+- [Aman Atar's member bundle](https://www.kaggle.com/datasets/amanatar/s6e11-rank1-q17-meta-bundle) (CC0);
+- [busyaprime](https://www.kaggle.com/datasets/busyaprime/s6e11-33-own-members) (CC0);
+- [dariushafshar](https://www.kaggle.com/datasets/dariushafshar/s6e11-golem-oof-library) (CC0);
+- [alexchilton](https://www.kaggle.com/datasets/alexchilton/s6e11-oof-predictions) (CC0);
+- [mathsonchain](https://www.kaggle.com/datasets/mathsonchain/s6e11-fraud-oof-test-17-single-models) (CC BY 4.0);
+- [Masaya Kawamata](https://www.kaggle.com/datasets/masayakawamata/s6e11-gpt2-target-first-oof) (CC BY 4.0).
+
+The target-first GPT-2 method is Chris Deotte's (S6E10 write-up), after Borisov et al., GReaT, ICLR 2023.
+The FinTFM notebook takes its shape from
 [Psi's TabPFN-3.5 starter](https://www.kaggle.com/code/philippsinger/tabpfn-3-5-starter-playground-series-s6e11).

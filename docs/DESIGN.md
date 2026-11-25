@@ -1290,3 +1290,39 @@ time-ordered folds (no entity or time column here), single-feature AUC screens (
 
 Reading: five families of ideas from four sources land on the same ceiling as D29-D31. `stack_pub4wz` stays the
 first pick.
+
+## D33. Code refactor (no number changed) and a sweep of fifteen new public notebooks
+
+**Refactor.** The shared code was split by responsibility on 2026-11-25: `common.py` (paths, folds, `CVScore`,
+rank transforms, run files), `encoding.py` (`FoldEncoder`, in-fold target encoding), `learners.py` (one `Learner`
+class per model family, replacing a six-branch `fit_predict`) and `zones.py` (a `Zone` dataclass, plus the
+`hand_zones` and `send_to_bottom` helpers that four scripts had each written for themselves). Bare `assert`s became
+explicit errors, impossible option combinations fail before data is read, and ruff now enforces docstrings and
+type hints. `tests/` adds 61 unit tests on synthetic data. Among them is a leakage test: flipping every validation
+label leaves every encoded frame unchanged. Before committing, the same commands ran on the old and new code:
+
+- 12 one-fold smoke runs of `train_gbdt.py` covering every model family, GLM boost, `--es inner`, seed and
+  undersampling bags, hierarchical and token keys, original rows and `--train-frac`: identical per-fold AUCs and
+  round counts;
+- `stack.py` (22-member `stack_pub5`, and hill climbing), `zones.py`, `stack_average.py`, `minmax_tails.py`,
+  `stack_ideas.py`: identical OOF and submission arrays (bit for bit), JSON and printed scores;
+- `import_public.py` (171 members re-imported to a scratch directory) and `residual.py`: identical arrays,
+  metadata and submission.
+
+542 output files compared, none differs.
+
+**Notebook sweep (read as text, nothing run).** Owner's links, 2026-11-25:
+
+| Notebook | What it is | Honest CV | Reading |
+| --- | --- | --- | --- |
+| goodpjw2008 *board model* v49 (0.95687), areebbb replay, dennis6886, malyshevdanil, daoviet step AF (0.95603) | moves along directions fitted to the public scores of 244 scored files | none (their own CV-backed file is still step I) | board steering; gains on the public rows by construction (D27); not used |
+| daoviet *CV Fortress v18* | "regime-gated analytic FFT" + zones | 0.95278 nested, public 0.95384 | 0.00005 above `stack_pub4wz`; neither its method nor its OOF is published, so it cannot be checked or reused |
+| malyshevdanil CV reserve | mean of five public streams, cascaded refitted guard zones | 0.95257 | below ours |
+| darkdevil18 v7 | own GLM, GLM-start XGBoost, RealMLP, zones; test predictions from one refit on all rows (1.25 x the fold rounds) | v6 0.95079, public 0.95107 | the refit is the one new idea; Alex Chilton measured +0.00045 on the public board, CV cannot see it |
+| liamob96 | depth-2 XGBoost on exact/digit TE, a merchant x card type x 24 h count key, out-of-fold LightGBM regressors predicting amount and velocity from the other columns | 0.95062 | below our best single (0.95098); the auxiliary regressors are new to us |
+| kiza123123 exp00-06b | raw anchors, fraud-domain ratios, digit and frequency features, depth sweep, per-value TE, RealMLP/TabM | best single 0.94911 | retraces D9-D12: depth 2 beats 4-8; nothing new |
+| sarveshchhetri | five models, six combiners, PR-AUC | ROC 0.948 | stacking +0.0004 PR-AUC over the best single; matches D11 |
+| mzishran | three default GBDTs, rank blend on a 3-fold split | not comparable | baseline |
+
+Reading: no published, checkable file beats 0.95273 on our folds. The public board's top is board steering, which
+explains a falling public rank without saying anything about the private rows.

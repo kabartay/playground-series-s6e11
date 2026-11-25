@@ -16,14 +16,19 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.stats import rankdata
 from sklearn.metrics import roc_auc_score
 
-from common import DATA, RUNS, TARGET, folds, load
+from common import DATA, TARGET, fold_ids, load, rank_fraction, save_run
+
+ArraySource = Path | tuple[Path, str] | tuple[Path, int]
+"""Where one array lives: a .npy file, (an .npz archive, key), (a 2-D .npy, column) or (a CSV, column)."""
 
 PUB = DATA / "public"
 # Bundle streams imported elsewhere: masaya_gpt2 (tag mk), gbn_bag5_w512 (tag gp), and the two LMs whose
@@ -41,23 +46,54 @@ STATED = "stated"
 DH_SKIP = {"a", "h", "i"}
 
 
-def our_fold_ids(y: np.ndarray) -> np.ndarray:
-    """Fold index of every training row under the shared split."""
-    f = np.empty(len(y), dtype=np.int8)
-    for k, (_, i_va) in enumerate(folds(y)):
-        f[i_va] = k
-    return f
+@dataclass(frozen=True)
+class Member:
+    """One public candidate member and what its source states about it.
+
+    Attributes:
+        tag: short source tag; the run is named pub_<tag>_<slug(name)>.
+        name: the member's name in its source.
+        oof, test: where its out-of-fold and test scores live.
+        auc: OOF AUC the source reports, checked to 1e-4 (None: not reported).
+        folds: the source's fold ids, STATED (the description states our split) or None (unknown).
+        source: Kaggle dataset or notebook it comes from.
+        note: model family and licence, kept in meta.json.
+        fold_aucs: per-fold AUCs the source reports, checked to 1e-4 when given.
+        rank_oof: the OOF holds log-odds but the test file rank fractions, so the OOF becomes ranks too.
+    """
+
+    tag: str
+    name: str
+    oof: ArraySource
+    test: ArraySource
+    auc: float | None
+    folds: ArraySource | str | None
+    source: str
+    note: str
+    fold_aucs: list[float] | None = None
+    rank_oof: bool = False
+
+    @property
+    def run(self) -> str:
+        """Run name under runs/."""
+        return f"pub_{self.tag}_{slug(self.name)}"
 
 
-def members() -> list[dict]:
-    """Every candidate member: tag, name, oof and test paths, reported AUC, fold file, licence note."""
-    out = []
+def read_rows(path: Path) -> Iterator[dict[str, Any]]:
+    """Rows of a CSV manifest as dicts (the file is closed when the iteration ends)."""
+    with path.open(newline="") as fh:
+        yield from csv.DictReader(fh)
+
+
+def members() -> list[Member]:
+    """Every candidate member whose source has been downloaded to data/public/."""
+    out: list[Member] = []
     d = PUB / "goodpjw2008__s6e11-oof-bank"
     if d.exists():
-        for r in csv.DictReader(open(d / "manifest.csv")):
+        for r in read_rows(d / "manifest.csv"):
             if r["core"] == "True":
                 out.append(
-                    dict(
+                    Member(
                         tag="gp",
                         name=r["name"],
                         oof=d / f"oof_{r['name']}.npy",
@@ -73,7 +109,7 @@ def members() -> list[dict]:
         for p in sorted(d.glob("oof_*.npy")):
             name = p.stem[4:]
             out.append(
-                dict(
+                Member(
                     tag="mc",
                     name=name,
                     oof=p,
@@ -87,7 +123,7 @@ def members() -> list[dict]:
     d = PUB / "masayakawamata__s6e11-gpt2-target-first-oof"
     if d.exists():
         out.append(
-            dict(
+            Member(
                 tag="mk",
                 name="gpt2",
                 oof=d / "oof.npy",
@@ -107,7 +143,7 @@ def members() -> list[dict]:
             if n in BUNDLE_SKIP:
                 continue
             out.append(
-                dict(
+                Member(
                     tag="q17",
                     name=n,
                     oof=(z, f"oof_{n}"),
@@ -130,7 +166,7 @@ def members() -> list[dict]:
         d = PUB / f"goodpjw2008__{ds}"
         if d.exists():
             out.append(
-                dict(
+                Member(
                     tag="gw",
                     name=name,
                     oof=d / oof,
@@ -143,9 +179,9 @@ def members() -> list[dict]:
             )
     d = PUB / "busyaprime__s6e11-33-own-members"
     if d.exists():
-        for col, r in enumerate(csv.DictReader(open(d / "manifest.csv"))):
+        for col, r in enumerate(read_rows(d / "manifest.csv")):
             out.append(
-                dict(
+                Member(
                     tag="bp",
                     name=r["name"],
                     oof=(d / "oof.npy", col),
@@ -159,11 +195,11 @@ def members() -> list[dict]:
     lib = PUB / "dariushafshar__s6e11-golem-oof-library"
     for d, tag in ((lib, "dh"), (PUB / "dariushafshar__s6e11-gpu-oof-members", "dg")):
         if d.exists() and lib.exists():
-            for r in csv.DictReader(open(d / "manifest.csv")):
+            for r in read_rows(d / "manifest.csv"):
                 if r["member"] in DH_SKIP:
                     continue
                 out.append(
-                    dict(
+                    Member(
                         tag=tag,
                         name=r["member"],
                         oof=d / f"oof_{r['member']}.npy",
@@ -180,7 +216,7 @@ def members() -> list[dict]:
         for h, m in man.items():
             if (d / f"oof_{h}.npy").exists():
                 out.append(
-                    dict(
+                    Member(
                         tag="ac",
                         name=f"{m['name']} {m.get('inputs', '')}".strip(),
                         oof=d / f"oof_{h}.npy",
@@ -196,7 +232,7 @@ def members() -> list[dict]:
     if d.exists():
         for name in ("wide_lm_stack", "wide_stack"):
             out.append(
-                dict(
+                Member(
                     tag="fa",
                     name=name,
                     oof=d / f"{name}_nested.npy",
@@ -212,7 +248,7 @@ def members() -> list[dict]:
         d = PUB / f"yekenot__realmlp-{kind}"
         if d.exists():
             out.append(
-                dict(
+                Member(
                     tag="ym",
                     name=f"realmlp_{kind}",
                     oof=(d / "oof_preds.csv", "is_fraud"),
@@ -228,9 +264,9 @@ def members() -> list[dict]:
     # per-fold AUCs, which must match ours (checked in main).
     d = PUB / "wenimohamed__s6e11-diverse-bpe-realmlp-tabm-oof-pack"
     if d.exists():
-        for r in csv.DictReader(open(d / "model_summary.csv")):
+        for r in read_rows(d / "model_summary.csv"):
             out.append(
-                dict(
+                Member(
                     tag="wm",
                     name=r["model_name"].removeprefix("weni_"),
                     oof=d / r["oof_file"],
@@ -246,7 +282,7 @@ def members() -> list[dict]:
     d = PUB / "yekenot__tabm-pytabkit"
     if d.exists():
         out.append(
-            dict(
+            Member(
                 tag="ym",
                 name="tabm_pytabkit",
                 oof=(d / "oof_preds.csv", "is_fraud"),
@@ -264,13 +300,19 @@ def members() -> list[dict]:
     for ds, name, oof, test, rank, note in (
         ("s6e11-target-first-lm", "lm", "lm_oof.npy", "lm_test.npy", True, "GPT-2 target-first"),
         ("s6e11-realmlp-member", "realmlp_8seeds", "mlp_oof.npy", "mlp_test.npy", False, "RealMLP, 8 seeds"),
-        ("s6e11-realmlp-member", "realmlp_4ep", "mlp4_oof.npy", "mlp4_test.npy", False,
-         "RealMLP, 4 epochs, 2 seeds"),
+        (
+            "s6e11-realmlp-member",
+            "realmlp_4ep",
+            "mlp4_oof.npy",
+            "mlp4_test.npy",
+            False,
+            "RealMLP, 4 epochs, 2 seeds",
+        ),
     ):
         d = PUB / f"megayak__{ds}"
         if d.exists():
             out.append(
-                dict(
+                Member(
                     tag="mg",
                     name=name,
                     oof=d / oof,
@@ -286,7 +328,7 @@ def members() -> list[dict]:
     d = PUB / "goodpjw2008__s6e11-board-model-pinned-inputs"
     if d.exists():
         out.append(
-            dict(
+            Member(
                 tag="dk",
                 name="xgb_glm_bag",
                 oof=(d / "davutkursun_xgb_glm_bag_oof.csv", "pred"),
@@ -311,7 +353,7 @@ def members() -> list[dict]:
         if (d / "k9_summary.json").exists():
             oof, test, fold, fold_aucs = storyteller_arrays(d)
             out.append(
-                dict(
+                Member(
                     tag=tag,
                     name=ds.split("__")[0],
                     oof=oof,
@@ -353,11 +395,11 @@ def storyteller_arrays(d: Path) -> tuple[Path, Path, Path, list[float]]:
     return (*out, fold_aucs)
 
 
-def load_array(src: Path | tuple[Path, str] | tuple[Path, int]) -> np.ndarray:
-    """A .npy file, one array of an .npz archive as (path, key), one column of a 2-D .npy as (path, col),
-    or one column of a CSV as (path, column).
+def load_array(src: ArraySource) -> np.ndarray:
+    """Load one array from an :data:`ArraySource`; never unpickles.
 
-    Never unpickles.
+    Sources: a .npy file, one array of an .npz archive as (path, key), one column of a 2-D .npy as
+    (path, col), or one column of a CSV as (path, column).
     """
     if isinstance(src, tuple) and isinstance(src[1], int):
         return np.asarray(np.load(src[0], mmap_mode="r", allow_pickle=False)[:, src[1]])
@@ -369,11 +411,10 @@ def load_array(src: Path | tuple[Path, str] | tuple[Path, int]) -> np.ndarray:
     return np.load(src, allow_pickle=False)
 
 
-def load_folds(p: Path | tuple[Path, str]) -> np.ndarray:
-    """A source's fold ids in train.csv order."""
+def load_folds(p: ArraySource) -> np.ndarray:
+    """A source's fold ids in train.csv order (a .npy, an array source, or a CSV with a ``fold`` column)."""
     if isinstance(p, tuple) or p.suffix == ".npy":
         return load_array(p).astype(np.int8)
-        return np.load(p, allow_pickle=False).astype(np.int8)
     return pd.read_csv(p)["fold"].to_numpy().astype(np.int8)
 
 
@@ -382,58 +423,61 @@ def slug(s: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in s.lower()).strip("_")[:40]
 
 
+def check(
+    m: Member, oof: np.ndarray, test: np.ndarray, y: np.ndarray, ours: np.ndarray, n_test: int
+) -> str | None:
+    """Return why a member must be skipped, or None when every check passes.
+
+    Checks: shapes, finite values, the source's folds against ours, its reported OOF AUC and per-fold AUCs.
+    """
+    if oof.shape != (len(y),) or test.shape != (n_test,):
+        return f"shapes {oof.shape} {test.shape}"
+    if not (np.isfinite(oof).all() and np.isfinite(test).all()):
+        return "non-finite values"
+    if m.folds not in (None, STATED) and not np.array_equal(load_folds(m.folds), ours):
+        return "folds differ from ours"
+    auc = roc_auc_score(y, oof)
+    if m.auc is not None and abs(auc - m.auc) > 1e-4:
+        return f"AUC {auc:.5f} but source reports {m.auc:.5f} (row order?)"
+    if m.fold_aucs is not None:
+        got = [roc_auc_score(y[ours == k], oof[ours == k]) for k in range(5)]
+        if max(abs(a - b) for a, b in zip(got, m.fold_aucs, strict=True)) > 1e-4:
+            return f"fold AUCs {[round(g, 5) for g in got]} differ from the source's"
+    return None
+
+
+def fold_status(m: Member) -> str:
+    """How the member's folds were established, for meta.json."""
+    if m.folds == STATED:
+        return "stated, fold AUCs match" if m.fold_aucs else "stated"
+    return "checked" if m.folds is not None else "unknown"
+
+
 def main() -> None:
+    """Check every downloaded member and import those that pass as runs/pub_*."""
     tr, te, _ = load()
     y = tr[TARGET].to_numpy()
-    ours = our_fold_ids(y)
+    ours = fold_ids(y)
     ok = 0
     for m in members():
-        label = f"{m['tag']}:{m['name']}"
+        label = f"{m.tag}:{m.name}"
         try:
-            oof = load_array(m["oof"]).astype("float64").ravel()
-            test = load_array(m["test"]).astype("float64").ravel()
+            oof = load_array(m.oof).astype("float64").ravel()
+            test = load_array(m.test).astype("float64").ravel()
         except (OSError, ValueError, KeyError) as e:
             print(f"  skip {label}: {e}")
             continue
-        if m.get("rank_oof"):
-            oof = (rankdata(oof) - 0.5) / len(oof)
-        if oof.shape != (len(tr),) or test.shape != (len(te),):
-            print(f"  skip {label}: shapes {oof.shape} {test.shape}")
-            continue
-        if not (np.isfinite(oof).all() and np.isfinite(test).all()):
-            print(f"  skip {label}: non-finite values")
-            continue
-        if m["folds"] not in (None, STATED) and not np.array_equal(load_folds(m["folds"]), ours):
-            print(f"  skip {label}: folds differ from ours")
+        if m.rank_oof:
+            oof = rank_fraction(oof)
+        reason = check(m, oof, test, y, ours, len(te))
+        if reason is not None:
+            print(f"  skip {label}: {reason}")
             continue
         auc = roc_auc_score(y, oof)
-        if m["auc"] is not None and abs(auc - m["auc"]) > 1e-4:
-            print(f"  skip {label}: AUC {auc:.5f} but source reports {m['auc']:.5f} (row order?)")
-            continue
-        if m.get("fold_aucs") is not None:
-            got = [roc_auc_score(y[ours == k], oof[ours == k]) for k in range(5)]
-            if max(abs(a - b) for a, b in zip(got, m["fold_aucs"], strict=True)) > 1e-4:
-                print(f"  skip {label}: fold AUCs {[round(g, 5) for g in got]} differ from the source's")
-                continue
-        run = f"pub_{m['tag']}_{slug(m['name'])}"
-        d = RUNS / run
-        d.mkdir(parents=True, exist_ok=True)
-        np.save(d / "oof.npy", oof)
-        np.save(d / "test.npy", test)
-        meta = dict(
-            source=m["source"],
-            member=m["name"],
-            note=m["note"],
-            cv=auc,
-            folds=(
-                ("stated, fold AUCs match" if m.get("fold_aucs") else "stated")
-                if m["folds"] == STATED
-                else ("checked" if m["folds"] is not None else "unknown")
-            ),
-        )
-        (d / "meta.json").write_text(json.dumps(meta, indent=2))
+        meta = dict(source=m.source, member=m.name, note=m.note, cv=auc, folds=fold_status(m))
+        save_run(m.run, oof, test, meta)
         ok += 1
-        print(f"  {run:44s} {auc:.5f}  folds {meta['folds']}")
+        print(f"  {m.run:44s} {auc:.5f}  folds {meta['folds']}")
     print(f"imported {ok} members")
 
 

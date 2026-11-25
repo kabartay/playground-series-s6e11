@@ -1,4 +1,4 @@
-"""Run src/train_lm.py folds on a RunPod GPU pod, copy the fold files back, delete the pod.
+r"""Run src/train_lm.py folds on a RunPod GPU pod, copy the fold files back, delete the pod.
 
 Adapted from the owner's fintfm launcher (`scripts/runpod/run_kernel_on_pod.py` there):
 
@@ -17,7 +17,7 @@ for the checks in `--dry-run`).
 
 Example (fold 0 of the GPT-2 member; one pod per fold, then merge locally)::
 
-    set -a; . ./.env; set +a; .venv/bin/python scripts/runpod_lm.py --name r14_gpt2 --folds 0 \\
+    set -a; . ./.env; set +a; .venv/bin/python scripts/runpod_lm.py --name r14_gpt2 --folds 0 \
         -- --train-min 90 --oof-orders 2 --eval-bs 128
     .venv/bin/python src/train_lm.py --name r14_gpt2 --merge-only
 

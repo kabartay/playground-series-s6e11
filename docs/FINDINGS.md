@@ -474,6 +474,8 @@ This is judgement. We have not run any of it on real transaction data.
 
 All scripts run from `src/` with `.venv/bin/python` (Python 3.12, `uv pip install -r requirements.txt`). Data is not committed; DATA.md gives the download commands. Pinned versions include LightGBM 4.7.0, XGBoost 3.4.1, CatBoost 1.2.10, scikit-learn 1.9.1 and tiktoken 0.14.0.
 
+Since 2026-11-25 the shared code is split by responsibility: `common.py` (paths, folds, `CVScore`, rank transforms, run files), `features.py` (feature sets and keys), `encoding.py` (in-fold target encoding), `learners.py` (one class per model family) and `zones.py`. `train_gbdt.py` keeps only the command line and the fold loop. The split changed no number (D33). `tests/` holds unit tests on synthetic data (`.venv/bin/python -m pytest -q`).
+
 | Step | Command or script |
 | --- | --- |
 | Train a CV model | `train_gbdt.py --model {lgb,xgb,cat,glm,mlp,realmlp} --fe ... --te ... --keys ... --offset glm --name N` |

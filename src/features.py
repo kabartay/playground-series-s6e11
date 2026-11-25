@@ -1,25 +1,38 @@
-"""Feature sets. Each builder takes (train, test, original) and returns frames with identical columns.
+"""Feature sets and target-encoding keys, built once over train, test and the original dataset.
 
-Fold-safe by construction: nothing here looks at the competition target. Target statistics come only
-from the original dataset, which never appears in validation.
+Two kinds of output:
+
+* **Feature sets** (``FEATURE_SETS``, chosen with ``train_gbdt.py --fe``). Each builder takes
+  ``(train, test, original)`` and returns three frames with identical columns.
+* **Encoding keys** (:func:`te_keys`). Integer category codes, one column per key, that
+  ``encoding.FoldEncoder`` target-encodes inside each fold.
+
+Fold-safe by construction: nothing here reads the competition target. Target statistics come only from
+the original dataset, which never appears in validation; everything else is unsupervised (value counts,
+digits, tokens).
 """
 
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
 
 from common import BOOL, CAT_STR, NUM, RAW, TARGET
 
+Frames = list[pd.DataFrame]
+"""Three frames in the order (train, test, original)."""
+FeatureBuilder = Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame], Frames]
 
-def fe_raw(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+
+def fe_raw(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """Raw columns only."""
     return [df[RAW].copy() for df in (tr, te, og)]
 
 
-def fe_orig_te(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_orig_te(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """Raw columns plus, for every column, the original dataset's fraud rate and count at that value.
 
     Unseen values get NaN. Smoothing towards the global rate with weight 20 rows.
@@ -37,7 +50,7 @@ def fe_orig_te(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.
     return out
 
 
-def fe_combo(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_combo(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """fe_orig_te plus simple ratios and a count of risk flags."""
     out = fe_orig_te(tr, te, og)
     for src, dst in zip((tr, te, og), out, strict=True):
@@ -48,7 +61,7 @@ def fe_combo(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Da
     return out
 
 
-def fe_count(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_count(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """fe_combo plus frequency of each numeric value over train+test+original (unsupervised)."""
     out = fe_combo(tr, te, og)
     allv = pd.concat([tr[NUM], te[NUM], og[NUM]])
@@ -59,14 +72,13 @@ def fe_count(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Da
     return out
 
 
-def fe_ogmodel(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_ogmodel(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """fe_count plus the prediction of a LightGBM trained on the original dataset only.
 
     Train and test get a model fitted on all original rows; original rows get 5-fold out-of-fold
     predictions so none sees its own label. The competition target is never read.
     """
     import lightgbm as lgb
-    import numpy as np
     from sklearn.model_selection import StratifiedKFold
 
     out = fe_count(tr, te, og)
@@ -117,9 +129,7 @@ TE_TOP = [
 
 def digits(df: pd.DataFrame) -> pd.DataFrame:
     """First and second decimal digit of continuous columns: a modulo artefact of the synthesiser."""
-    import numpy as np
-
-    out = {}
+    out: dict[str, np.ndarray] = {}
     for c in DIGIT_COLS:
         cents = np.rint(df[c].to_numpy() * 100).astype("int64")
         out[f"d1_{c}"] = ((cents // 10) % 10).astype("int8")
@@ -127,7 +137,7 @@ def digits(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out, index=df.index)
 
 
-def fe_digits(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_digits(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """Raw columns plus decimal digits."""
     return [
         pd.concat([r, digits(src)], axis=1) for r, src in zip(fe_raw(tr, te, og), (tr, te, og), strict=True)
@@ -181,19 +191,17 @@ def te_keys(
     digit_keys: bool = False,
     joint: bool = False,
     token_keys: bool = False,
-) -> list[pd.DataFrame]:
+) -> Frames:
     """Integer category keys for in-fold target encoding (train, test, original), built on the union of rows.
 
     Every column's exact value is a key (when it has at most half as many levels as rows); continuous
     columns are also keyed on rounded values; decimal endings are keys; with `pairs`, every pair among
     TE_TOP is a key; with `joint`, every pair in JOINT is a key named j_<name>; with `token_keys`, the first
     two GPT-2 tokens and the 3-digit chunks of each float column's integer part are keys (`token_frame`).
-    The encoding itself happens inside each fold in train_gbdt.py.
+    The encoding itself happens inside each fold (``encoding.FoldEncoder``).
     """
-    import numpy as np
-
     both = pd.concat([tr[RAW], te[RAW], og[RAW]], ignore_index=True)
-    keys = {}
+    keys: dict[str, np.ndarray] = {}
     for c in RAW:
         codes, uniq = pd.factorize(both[c].astype(str))
         if len(uniq) <= len(both) // 2:
@@ -222,9 +230,7 @@ def te_keys(
         for name, col in token_frame(both).items():
             keys[name] = pd.factorize(col)[0]
     if pairs:
-        from itertools import combinations
-
-        for a, b in combinations(TE_TOP, 2):
+        for a, b in itertools.combinations(TE_TOP, 2):
             keys[f"k_{a}__{b}"] = pd.factorize(both[a].astype(str) + "_" + both[b].astype(str))[0]
     if joint:
         for name, cols in JOINT:
@@ -254,7 +260,7 @@ ART_PAIR_COLS = [
 ]
 
 
-def fe_art(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_art(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """Raw columns plus pooled generator artefacts (unsupervised, no labels used).
 
     For each numeric column with more than 100 distinct values: log1p of how often the exact value occurs
@@ -280,7 +286,7 @@ def fe_art(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Data
     return out
 
 
-def fe_emb(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.DataFrame]:
+def fe_emb(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> Frames:
     """Raw columns plus categorical copies of every numeric column, for networks that embed categories.
 
     `emb_<col>`: the integer part of each numeric column as a category (levels pooled over train + test +
@@ -304,7 +310,7 @@ def fe_emb(tr: pd.DataFrame, te: pd.DataFrame, og: pd.DataFrame) -> list[pd.Data
     return out
 
 
-FEATURE_SETS = {
+FEATURE_SETS: dict[str, FeatureBuilder] = {
     "raw": fe_raw,
     "art": fe_art,
     "ogte": fe_orig_te,
@@ -315,3 +321,4 @@ FEATURE_SETS = {
     "emb": fe_emb,
 }
 CATS = CAT_STR
+"""String categoricals as the models see them (pandas category columns)."""

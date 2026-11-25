@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import os
 import subprocess
 import sys
 import time
@@ -25,7 +24,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from common import RAW, RUNS, TARGET, folds, load, save_run
+from common import RAW, RUNS, TARGET, THREADS, folds, load, save_run
 
 FINTFM_COMMIT = "8a25b4c790f86feab97ae9e7be80299bf1cebc52"
 CKPT_URL = (
@@ -36,7 +35,11 @@ CKPT_SHA256 = "d231b062483c9261aae4c503ad5359db295fc7206fa0183f51763e4953c518d2"
 
 
 def ensure_fintfm() -> Path:
-    """Install the pinned fintfm if missing and return the verified checkpoint path."""
+    """Install the pinned fintfm if missing and return the verified checkpoint path.
+
+    A checkpoint whose SHA-256 differs from ``CKPT_SHA256`` (a truncated or altered download) is deleted
+    and the script exits, so the next run downloads it again.
+    """
     try:
         import fintfm  # noqa: F401
     except ImportError:
@@ -47,7 +50,8 @@ def ensure_fintfm() -> Path:
         ckpt.parent.mkdir(parents=True, exist_ok=True)
         urllib.request.urlretrieve(CKPT_URL, ckpt)
     if hashlib.sha256(ckpt.read_bytes()).hexdigest() != CKPT_SHA256:
-        sys.exit("checkpoint hash mismatch")
+        ckpt.unlink()
+        sys.exit(f"checkpoint hash mismatch: deleted {ckpt}; run again to download it afresh")
     return ckpt
 
 
@@ -62,6 +66,7 @@ def matrix(frames: list[pd.DataFrame]) -> list[np.ndarray]:
 
 
 def main() -> None:
+    """Score the requested folds (and optionally test) zero-shot and save the run."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--strategy", default="uniform", help="FinTFM context_strategy")
     ap.add_argument("--max-context", type=int, default=2000)
@@ -78,7 +83,6 @@ def main() -> None:
     tr, te, og = load()
     X, Xt, Xo = matrix([tr, te, og])
     y, yo = tr[TARGET].to_numpy(), og[TARGET].to_numpy()
-    threads = int(os.environ.get("S6E11_THREADS", "4"))
 
     def model() -> FinancialTFMClassifier:
         return FinancialTFMClassifier(
@@ -87,7 +91,7 @@ def main() -> None:
 
     import torch
 
-    torch.set_num_threads(threads)
+    torch.set_num_threads(THREADS)
     oof = np.full(len(tr), np.nan)
     scores, t0 = [], time.time()
     for k, (i_tr, i_va) in enumerate(folds(y)[: a.folds]):

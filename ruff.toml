@@ -1,5 +1,26 @@
 line-length = 110
 target-version = "py312"
+# First-party modules for import sorting: scripts import each other by bare name.
+src = ["src", "scripts", "tests"]
+# The notebook builders hold notebook cell sources as long strings; they are linted only for errors.
+extend-exclude = ["notebooks"]
 
 [lint]
-select = ["E", "F", "I", "B", "UP"]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade, docstrings, annotations, simplifications, ruff, blind except
+select = ["E", "F", "I", "B", "UP", "D", "ANN", "SIM", "RUF", "BLE"]
+ignore = [
+  "D105",    # magic methods are documented by their protocol
+  "D107",    # __init__ arguments are documented in the class docstring
+  "D401",    # summaries read naturally as "Return ..." or as noun phrases
+  "D417",    # Args sections list the arguments that need explaining, not every one
+  "ANN401",  # Any is legitimate for JSON-like metadata
+  "RUF001",  # typographic characters in strings are deliberate
+  "RUF002",
+  "RUF003",
+]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.per-file-ignores]
+"tests/*" = ["D103"]  # test names say what they check

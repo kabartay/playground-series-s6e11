@@ -1,4 +1,4 @@
-"""Adversarial validation: can a classifier tell train rows from test rows? (D30)
+"""Adversarial validation (D30): can a classifier tell train rows from test rows?
 
 A LightGBM model is trained, with 5-fold CV over train + test rows, to predict whether a row comes from
 ``test.csv``. An AUC near 0.5 means the two files are drawn alike, so out-of-fold CV is a fair stand-in for
@@ -13,7 +13,6 @@ Run from ``src/``::
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 
 import lightgbm as lgb
@@ -22,10 +21,8 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 
-from common import TARGET, load
+from common import TARGET, THREADS, load
 from features import FEATURE_SETS
-
-THREADS = int(os.environ.get("S6E11_THREADS", "4"))  # shared Mac: keep at 4 or below
 
 
 def adversarial_oof(X: pd.DataFrame, is_test: np.ndarray, seed: int = 0) -> tuple[np.ndarray, pd.Series]:
@@ -38,8 +35,17 @@ def adversarial_oof(X: pd.DataFrame, is_test: np.ndarray, seed: int = 0) -> tupl
     """
     p = np.zeros(len(X))
     gain = pd.Series(0.0, index=X.columns)
-    params = dict(objective="binary", learning_rate=0.05, num_leaves=63, min_child_samples=100,
-                  feature_fraction=0.8, n_estimators=400, n_jobs=THREADS, random_state=seed, verbose=-1)
+    params = dict(
+        objective="binary",
+        learning_rate=0.05,
+        num_leaves=63,
+        min_child_samples=100,
+        feature_fraction=0.8,
+        n_estimators=400,
+        n_jobs=THREADS,
+        random_state=seed,
+        verbose=-1,
+    )
     for i_fit, i_app in StratifiedKFold(5, shuffle=True, random_state=seed).split(X, is_test):
         m = lgb.LGBMClassifier(**params).fit(X.iloc[i_fit], is_test[i_fit])
         p[i_app] = m.predict_proba(X.iloc[i_app])[:, 1]
@@ -67,19 +73,25 @@ def main() -> None:
     w = p_tr / (1 - p_tr)
     w /= w.mean()
     ess = w.sum() ** 2 / (w**2).sum()
-    print(f"train-row weights p/(1-p): min {w.min():.3f} max {w.max():.3f}; effective sample size {ess:,.0f}"
-          f" of {len(w):,}")
+    print(
+        f"train-row weights p/(1-p): min {w.min():.3f} max {w.max():.3f}; effective sample size {ess:,.0f}"
+        f" of {len(w):,}"
+    )
     y = tr[TARGET].to_numpy()
     q = np.quantile(p_tr, [0.1, 0.9])
     lo, hi = p_tr <= q[0], p_tr >= q[1]
-    print(f"fraud rate: all {y.mean():.4f}, least test-like decile {y[lo].mean():.4f}, "
-          f"most test-like decile {y[hi].mean():.4f}")
+    print(
+        f"fraud rate: all {y.mean():.4f}, least test-like decile {y[lo].mean():.4f}, "
+        f"most test-like decile {y[hi].mean():.4f}"
+    )
     for f in a.oof:
         s = np.load(f, allow_pickle=False)
         a_all, a_w = roc_auc_score(y, s), roc_auc_score(y, s, sample_weight=w)
         a_lo, a_hi = roc_auc_score(y[lo], s[lo]), roc_auc_score(y[hi], s[hi])
-        print(f"{f.parent.name}/{f.name}: OOF AUC {a_all:.5f}, weighted {a_w:.5f}; "
-              f"least / most test-like decile {a_lo:.5f} / {a_hi:.5f}")
+        print(
+            f"{f.parent.name}/{f.name}: OOF AUC {a_all:.5f}, weighted {a_w:.5f}; "
+            f"least / most test-like decile {a_lo:.5f} / {a_hi:.5f}"
+        )
 
 
 if __name__ == "__main__":

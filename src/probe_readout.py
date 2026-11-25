@@ -12,7 +12,6 @@ Usage (from src/, after pip install fintfm==1.0.0):
 from __future__ import annotations
 
 import argparse
-import os
 import time
 
 import numpy as np
@@ -20,10 +19,11 @@ import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from common import _find
+from common import THREADS, find_data
 
 
 def main() -> None:
+    """Fit the readout on a sample of the pool and print its holdout AUC, AP and throughput."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--fit-rows", type=int, default=20_000)
     ap.add_argument("--hold-rows", type=int, default=20_000)
@@ -32,11 +32,11 @@ def main() -> None:
 
     import torch
 
-    torch.set_num_threads(int(os.environ.get("S6E11_THREADS", "4")))
+    torch.set_num_threads(THREADS)
     import fintfm
     from fintfm.readout import LinearReadoutModel, entry_defaults
 
-    tr = pd.read_csv(_find("train.csv"))
+    tr = pd.read_csv(find_data("train.csv"))
     y = tr.pop("is_fraud").to_numpy().astype(int)
     cats = [c for c in tr.columns if tr[c].dtype == object]
     X = pd.get_dummies(tr.drop(columns="id"), columns=cats, dtype=np.float32).astype(np.float32).to_numpy()

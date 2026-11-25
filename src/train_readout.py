@@ -19,20 +19,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-from common import RUNS, TARGET, _find, folds
+from common import RUNS, TARGET, THREADS, find_data, folds, save_run
 
 
 def features() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (X_train, y, X_test): raw columns, one-hot categoricals over train and test, float32."""
-    tr = pd.read_csv(_find("train.csv"))
-    te = pd.read_csv(_find("test.csv"))
+    tr = pd.read_csv(find_data("train.csv"))
+    te = pd.read_csv(find_data("test.csv"))
     y = tr.pop(TARGET).to_numpy().astype(int)
     both = pd.concat([tr, te], ignore_index=True).drop(columns="id")
     cats = [c for c in both.columns if not pd.api.types.is_numeric_dtype(both[c])]
@@ -61,7 +60,7 @@ def run_part(name: str, part: str, fold_ids: list[int], test: bool) -> None:
     import fintfm
     import torch
 
-    torch.set_num_threads(int(os.environ.get("S6E11_THREADS", "4")))
+    torch.set_num_threads(THREADS)
     X, y, Xt = features()
     print(f"fintfm {fintfm.__version__}; train {X.shape}, test {Xt.shape}", flush=True)
     d = RUNS / f"{name}_{part}"
@@ -84,8 +83,12 @@ def run_part(name: str, part: str, fold_ids: list[int], test: bool) -> None:
 
 
 def merge(name: str, parts: list[str]) -> None:
-    """Join the parts' fold and test scores into runs/<name>/{oof,test,meta}."""
-    y = pd.read_csv(_find("train.csv"), usecols=[TARGET])[TARGET].to_numpy().astype(int)
+    """Join the parts' fold and test scores into runs/<name>/{oof,test,meta}.
+
+    Raises:
+        ValueError: a fold is scored by two parts or by none, or the test set by more or fewer than one.
+    """
+    y = pd.read_csv(find_data("train.csv"), usecols=[TARGET])[TARGET].to_numpy().astype(int)
     oof = np.full(len(y), np.nan)
     test = None
     seen: dict[int, str] = {}
@@ -94,26 +97,27 @@ def merge(name: str, parts: list[str]) -> None:
         for k, (_, i_va) in enumerate(folds(y)):
             f = d / f"oof_f{k}.npy"
             if f.exists():
-                assert k not in seen, f"fold {k} in parts {seen[k]} and {part}"
+                if k in seen:
+                    raise ValueError(f"fold {k} in parts {seen[k]} and {part}")
                 seen[k] = part
                 oof[i_va] = np.load(f, allow_pickle=False)
         if (d / "test.npy").exists():
-            assert test is None, f"more than one part scored the test set ({part})"
+            if test is not None:
+                raise ValueError(f"more than one part scored the test set ({part})")
             test = np.load(d / "test.npy", allow_pickle=False)
-    assert np.isfinite(oof).all(), "a fold is missing"
-    assert test is not None, "no part scored the test set"
+    if not np.isfinite(oof).all():
+        raise ValueError("a fold is missing")
+    if test is None:
+        raise ValueError("no part scored the test set")
     fa = [roc_auc_score(y[i_va], oof[i_va]) for _, i_va in folds(y)]
     model = "fintfm 1.0.0 LinearReadoutModel, entry defaults"
     meta = {"model": model, "cv": roc_auc_score(y, oof), "folds": fa}
-    out = RUNS / name
-    out.mkdir(parents=True, exist_ok=True)
-    np.save(out / "oof.npy", oof)
-    np.save(out / "test.npy", test)
-    (out / "meta.json").write_text(json.dumps(meta, indent=2))
+    save_run(name, oof, test, meta)
     print(f"{name}: CV {meta['cv']:.5f} folds {np.round(fa, 5).tolist()}")
 
 
 def main() -> None:
+    """Score one part on this machine, or merge the parts' outputs."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True)
     ap.add_argument("--part", default="a")
