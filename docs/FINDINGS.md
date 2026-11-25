@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-22. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-three (D29 to D32) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-25. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-four (D29 to D34) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -415,6 +415,7 @@ Pre-registered main test: a bagged stack of our own as a fifth stack in `stack_p
 | Undersampling bag (4 seeds, all frauds, 25% of legitimate rows) | Playground S3E4, ULB notebooks | 0.95033 against 0.95043 alone; `stack_pub5` 0.95247, 1 of 5 up | D32 |
 | Mean, SD and deviation per exact value of each numeric column (90 columns, no labels) | IEEE-CIS client aggregates | raw-column screen 0.94669 against 0.94749; 0 of 5 up | D32 |
 | Isolation Forest and PCA reconstruction error (no labels) | ULB autoencoder notebook | alone 0.81128 / 0.79166 / 0.77241; screen 0.94712, 0 of 5 up; `stack_pub5` 0.95248, 2 of 5 up | D32 |
+| Test predictions from one refit on all rows instead of the mean of the fold models | darkdevil18, Alex Chilton (public-board measure) | simulated one level down: spline GLM -9.5 pts (1 of 5 folds), GLM boost +9.8 pts (3 of 5, SD 29.2) | D34 |
 
 ## 7. Discussion
 
