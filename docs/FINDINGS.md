@@ -1,6 +1,6 @@
 # Findings: Kaggle Playground S6E11, synthetic credit-card fraud
 
-Status 2026-11-25. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-four (D29 to D34) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
+Status 2026-11-25. The competition closes 2026-11-30 23:59 UTC. Rounds twenty to twenty-four (D29 to D35) are complete. This file is a wrap-up for a technical reader who has not seen the repo. It draws every figure from `docs/DESIGN.md`, `docs/COMPETITION.md` and `docs/DATA.md`. The decision ID (Dn) beside a figure points to the section of `docs/DESIGN.md` that holds it.
 
 Conventions used throughout:
 
@@ -445,6 +445,8 @@ The public-member stack levelled off near 0.9522 at 173 members (D20) and reache
 ### 7.4 An honest ceiling near 0.9526, and a board wall
 
 On our folds the CV-backed results meet at about 0.9526: the wide LM stack 0.95257, the 278-model pool 0.95261, and `stack_pubwz` 0.95263 (D29). Averaging four of these stacks built independently reaches 0.95273 (D31), so the wall is partly the variance of any one stack. DavutKursun's 95-member stack (0.95257) and goodpjw2008's 201-member wide stack land there as well; his notebook is titled *The 0.9526 Wall* (D30). The public board sits higher (first place 0.95931 on 2026-11-16, about 0.955 for the top group on 2026-11-19), and the sources we read agree that the top files are public files steered by the board (D7, D21, D27). Our evidence on steering is limited to what others measured: a 0.95388 public file scoring 0.95246 on labelled rows, and a 0.95508 step losing on all five folds (D27). We did not probe the board ourselves. Where the private rows end up is not measured.
+
+A simulation on labelled rows makes the board's private risk concrete (D35). A random 60,000 training rows played the public part and 271 out-of-fold members the scored files. A blend fitted on those rows only gained 0.0004 to 0.0036 there and lost 0.0005 to 0.0020 on the other 640,000, in all 20 random splits; pushing it 45% further, as the late-November continuation notebooks do, roughly doubled the private loss. The same honest file's public-part AUC moved with an SD of 0.0029 from split to split.
 
 ### 7.5 What transfers to real fraud work, and what does not
 

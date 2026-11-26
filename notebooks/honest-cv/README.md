@@ -17,3 +17,6 @@ edges refitted inside each fold, a measurement of public-board noise, and a tabl
 - Kaggle: public since 2026-11-20 (owner's choice):
   https://www.kaggle.com/code/muhakabartay/s6e11-own-models-only-honest-5-fold-cv.
   `kaggle kernels push -p notebooks/honest-cv` publishes a new version (about 2.5 h on CPU).
+- Kaggle version 4 (2026-11-26): the stacker and zones come from `src/stack.py` and `src/zones.py`, section 7
+  adds the D35 simulation of public-board blending, section 9 five more negatives (D32-D34). Local check on
+  cached runs: the same scores as version 2 (stack 0.95129, with zones 0.95135, 5 of 5 folds up).

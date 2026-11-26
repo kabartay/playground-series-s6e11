@@ -65,14 +65,20 @@ so here the five-fold CV decides every choice.
 | [10 · Submission](#s10) | |
 
 Run time on Kaggle CPU: about 2.5 hours, most of it the boosters and the RealMLP.
+
+*Version 4 (2026-11-26):* the stacker and the zones now come from the repo's library (`stack.py`,
+`zones.py`), section 7 adds a simulation of what public-board blending does to the private score, and
+section 9 adds five more measured negatives. Scores are unchanged.
 """)
 
 md(r"""
 ## 1 · Setup
 
-The models come from one training script, `train_gbdt.py`, with its feature builders in `features.py`
-and the data loading and folds in `common.py`. They are written to disk below exactly as they are in
-the repo, so every model in this notebook is one command line. `tiktoken` (MIT) gives GPT-2's tokeniser
+The models come from one training script, `train_gbdt.py`: feature builders in `features.py`, the
+in-fold target encoder in `encoding.py`, one class per model family in `learners.py`, data loading,
+folds and scores in `common.py`; the nested stacker comes from `stack.py` and the zero-fraud zones from
+`zones.py`. They are written to disk below exactly as they are in the repo (where 65 unit tests cover
+them), so every model in this notebook is one command line. `tiktoken` (MIT) gives GPT-2's tokeniser
 for one feature family; `pytabkit` (Apache-2.0) provides RealMLP.
 """)
 
@@ -84,7 +90,7 @@ os.makedirs("src", exist_ok=True)
 os.environ["S6E11_THREADS"] = "4"
 """)
 
-for module in ("common.py", "features.py", "encoding.py", "learners.py", "train_gbdt.py"):
+for module in ("common.py", "features.py", "encoding.py", "learners.py", "train_gbdt.py", "stack.py", "zones.py"):
     code(f"%%writefile src/{module}\n" + (SRC / module).read_text())
 
 code(r"""
@@ -95,7 +101,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 warnings.filterwarnings("ignore")
 sys.path.insert(0, "src")
-from common import RUNS, TARGET, folds, load
+from common import RUNS, TARGET, CVScore, folds, load
 
 tr, te, og = load()
 y = tr[TARGET].to_numpy()
@@ -257,26 +263,15 @@ members'. Regularisation C = 0.1.
 """)
 
 code(r"""
-names = list(RESULTS)
-def to_logit(oof, test):
-    # the GLMs and the GLM boost save logits already (values outside [0, 1]); the others save probabilities
-    if oof.min() < 0 or oof.max() > 1:
-        return oof, test
-    f = lambda p: np.log(np.clip(p, 1e-6, 1 - 1e-6) / (1 - np.clip(p, 1e-6, 1 - 1e-6)))
-    return f(oof), f(test)
-pairs = [to_logit(np.load(RUNS / n / "oof.npy"), np.load(RUNS / n / "test.npy")) for n in names]
-Z = np.column_stack([o for o, _ in pairs])
-Zt = np.column_stack([t for _, t in pairs])
+from stack import load_members, logistic_stacker, nested
 
-stack_oof = np.zeros(len(y))
-for i_tr, i_va in FOLDS:
-    lr = LogisticRegression(C=0.1, max_iter=2000).fit(Z[i_tr], y[i_tr])
-    stack_oof[i_va] = lr.decision_function(Z[i_va])
-stack_folds = [roc_auc_score(y[i], stack_oof[i]) for _, i in FOLDS]
+names = list(RESULTS)
+Z, Zt = load_members(names)  # logits; the GLMs and the GLM boost already save logits
+stack_oof, stack_score = nested(FOLDS, y, logistic_stacker(Z, y, C=0.1))
 best = max(RESULTS, key=lambda k: RESULTS[k]["cv"])
 print(f"best single ({best}): {RESULTS[best]['cv']:.5f}")
-print(f"nested stack:        {roc_auc_score(y, stack_oof):.5f}  folds {np.round(stack_folds, 5).tolist()}")
-lr = LogisticRegression(C=0.1, max_iter=2000).fit(Z, y)
+print(f"nested stack:        {stack_score}")
+lr = LogisticRegression(C=0.1, max_iter=1000).fit(Z, y)
 stack_test = lr.decision_function(Zt)
 print("weights:", dict(zip(names, np.round(lr.coef_[0], 3))))
 """)
@@ -294,7 +289,7 @@ for _ in range(300):
     s = rng.choice(len(y), 60_000, replace=False)
     a = roc_auc_score(y[s], stack_oof[s]); level.append(a)
     diff.append(a - roc_auc_score(y[s], single[s]))
-full_gain = roc_auc_score(y, stack_oof) - RESULTS[best]["cv"]
+full_gain = stack_score.cv - RESULTS[best]["cv"]
 print(f"stack AUC on 60,000 random rows: standard deviation {np.std(level):.5f}")
 print(f"stack minus best single, all 700k rows: {full_gain:+.5f}")
 print(f"stack minus best single, 60,000 rows:   mean {np.mean(diff):+.5f}, standard deviation {np.std(diff):.5f}, "
@@ -308,6 +303,28 @@ decimal. The **difference** between two files scored on the same rows moves much
 the same frauds; but even a real, all-folds gain like the stack's over its best member is sometimes
 reversed on 60,000 rows. Steps of 0.00001 to 0.0001, as at the top of the board, are well inside that
 noise. Five folds of 700,000 rows are not.
+""")
+
+md(r"""
+**What a blend fitted to the public board does on the private one.** In late November the top of the
+public board (0.957 and up) is built by *board models*: blends of a few hundred scored submissions whose
+weights are chosen to raise the public score, then pushed further along the same direction. No
+out-of-fold check exists for them. The repo rebuilds that situation on the training rows, where the labels
+are known (`src/research_board_sim.py`, D35): a random 60,000 rows play the public part, the other 640,000
+the private part, and 271 out-of-fold members play the scored files. A logistic blend fitted on the
+60,000 "public" rows only, against the honest four-stack mean, over 20 random splits:
+
+| Blend fitted on the public rows | Gain on the public rows | Gain on the private rows | Private up |
+| --- | --- | --- | --- |
+| mild fit (C = 0.01) | +0.00036 | -0.00048 | 0 of 20 |
+| medium fit (C = 0.1) | +0.00197 | -0.00074 | 0 of 20 |
+| medium fit, pushed 45% further | +0.00226 | -0.00165 | 0 of 20 |
+| strong fit (C = 1) | +0.00361 | -0.00204 | 0 of 20 |
+
+Fitting on the public rows' labels is more than a board model can learn from a few hundred scores, so
+the sizes here are an upper bound; the sign is the finding. Every public gain came with a private loss,
+and pushing further made the loss larger. The same honest file's public score also moved by 0.0029 (one
+standard deviation) from split to split, which is wider than the whole top of the board.
 """)
 
 md(r"""
@@ -330,40 +347,15 @@ a small optimism this check does not remove.
 """)
 
 code(r"""
-def clean(d):
-    ok = (d["cvv_retry_count"].to_numpy() == 0) & (d["prior_disputes"].to_numpy() == 0)
-    for f in flags:
-        ok &= d[f].to_numpy().astype(int) == 0
-    return ok
+from zones import hand_zones, send_to_bottom, zones_on_test
 
-ZONES = [  # (condition before the merchant-risk edge, published edge, strict <)
-    (lambda d: np.ones(len(d), bool), 13.1, True),
-    (lambda d: d["velocity_score"].to_numpy() <= 4.1, 20.0, False),
-    (lambda d: clean(d) & (d["velocity_score"].to_numpy() <= 4.1), 33.8, False),
-    (lambda d: clean(d) & (d["velocity_score"].to_numpy() <= 6.0), 25.0, False),
-]
-
-def zone_rows(d_fit, y_fit, d_app):
-    # rows of d_app inside any zone, with each merchant-risk edge refitted on (d_fit, y_fit)
-    z = np.zeros(len(d_app), bool)
-    m_fit, m_app = d_fit["merchant_risk_score"].to_numpy(), d_app["merchant_risk_score"].to_numpy()
-    for cond, pub, strict in ZONES:
-        fraud = cond(d_fit) & (y_fit == 1)
-        low = m_fit[fraud].min() if fraud.any() else np.inf
-        edge, s = (low, True) if low <= pub else (pub, strict)
-        z |= cond(d_app) & ((m_app < edge) if s else (m_app <= edge))
-    return z
-
-zoned = stack_oof.copy(); n_rows = n_fraud = 0
-for i_tr, i_va in FOLDS:
-    z = zone_rows(tr.iloc[i_tr], y[i_tr], tr.iloc[i_va])
-    n_rows += z.sum(); n_fraud += y[i_va][z].sum()
-    zoned[i_va[z]] = stack_oof.min() - 1
-zoned_folds = [roc_auc_score(y[i], zoned[i]) for _, i in FOLDS]
-print(f"held-out rows in a zone: {n_rows:,}, frauds among them: {n_fraud}")
-print(f"stack:         {roc_auc_score(y, stack_oof):.5f}  folds {np.round(stack_folds, 5).tolist()}")
-print(f"stack + zones: {roc_auc_score(y, zoned):.5f}  folds {np.round(zoned_folds, 5).tolist()}")
-print(f"folds up: {sum(a > b for a, b in zip(zoned_folds, stack_folds))} of 5")
+masks = [hand_zones(tr, y, i_tr, i_va) for i_tr, i_va in FOLDS]  # edges refitted on the training folds
+zoned_score = CVScore.of(y, send_to_bottom(stack_oof, FOLDS, masks), FOLDS)
+n_fraud = sum(int(y[i_va][z].sum()) for (_, i_va), z in zip(FOLDS, masks))
+print(f"held-out rows in a zone: {sum(int(z.sum()) for z in masks):,}, frauds among them: {n_fraud}")
+print(f"stack:         {stack_score}")
+print(f"stack + zones: {zoned_score}")
+print(f"folds up: {zoned_score.up(stack_score)} of 5")
 """)
 
 md(r"""
@@ -374,8 +366,8 @@ ranks these rows low; the zones only finish the job.
 md(r"""
 ## 9 · What did not help
 
-Measured in the repo on our full 24-model own stack (nested CV 0.95138), with the rule that a change is
-kept only if the stack improves on at least 4 of the 5 folds. Details and every other run:
+Measured in the repo, mostly on our full 24-model own stack (nested CV 0.95138), with the rule that a
+change is kept only if the stack improves on at least 4 of the 5 folds. Details and every other run:
 [docs/DESIGN.md](https://github.com/kabartay/playground-series-s6e11/blob/main/docs/DESIGN.md).
 
 | Idea | Result |
@@ -392,6 +384,11 @@ kept only if the stack improves on at least 4 of the 5 folds. Details and every 
 | Zero-fraud zones found by a shallow tree instead of the hand rules of section 8 | 0.93214 to 0.95015, 0 of 5 folds up |
 | Three target-encoder seeds for the token GLM, averaged | stack 0.95140, 4 of 5 folds up but only +0.00002 |
 | The GLMs solved to a 1,000 times tighter tolerance | the same fold AUC (0.94957) as the default |
+| XGBoost or CatBoost GLM boost added to this notebook's six | stack + zones 0.95130 to 0.95137 against 0.95135, at most 3 of 5 folds up |
+| Test predictions from one refit on all rows instead of the mean of the five fold models | simulated one level down: GLM -0.00010 (1 of 5 folds), GLM boost +0.00010 but 3 of 5 and following its round count |
+| Undersampling bags (every fraud, a fresh 25% of the legitimate rows per seed) | 0.95033 against 0.95043 for the plain booster |
+| Mean and SD of other columns per exact value (IEEE-CIS-style "client" aggregates) | -0.0008, 0 of 5 folds |
+| Isolation Forest and PCA reconstruction error as features or members | 0.811 alone without labels; nothing added once 11,689 frauds are labelled |
 
 The pattern: once the stack has a GLM, a GLM boost and a network, a new member has to see something none of
 them sees. More of the same, or a stronger version of the same, does not move it.
@@ -404,7 +401,7 @@ The stack's test logit, with the zone rows (edges refitted on all training rows)
 """)
 
 code(r"""
-z_test = zone_rows(tr, y, te)
+z_test = zones_on_test(tr, y, te)  # each edge: the lower of the published and the refitted-on-all-rows one
 p = 1 / (1 + np.exp(-stack_test))
 p[z_test] *= 1e-6
 sub = pd.DataFrame({"id": te["id"], TARGET: p})

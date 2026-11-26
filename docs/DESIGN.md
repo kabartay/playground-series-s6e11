@@ -1363,3 +1363,35 @@ predictions stay the mean of the fold models.
 Tooling kept for a later use: `train_gbdt.py --refit-only` writes `runs/<name>/test_refit.npy` next to a run,
 `refit_members.py STACK.json` rebuilds every own member's refit command from its `meta.json`, and
 `stack.py --refit-test` reads the refit files where they exist.
+
+## D35. What a blend fitted to the public board does on the private rows (a simulation)
+
+Why: by 2026-11-26 the public top (0.957 and up, D33) is built by board models and their continuations, and our
+public rank keeps falling. Their private effect is unknown until the close, but the situation can be rebuilt on
+labelled rows. `src/research_board_sim.py`: a random 60,000 training rows play the public part (P, about 1,000
+frauds, as on the board), the other 639,960 the private part (Q); the 271 complete out-of-fold vectors in `runs/`
+(own and public members) play the scored files; the base is the unzoned `stack_pub4wz` mean of four nested stacks,
+chosen without P's labels. A board file is a logistic blend of the base and all members (logit ranks,
+standardised), fitted on P only; a continuation adds 0.45 x (board - base), as the 2026-11-26 notebooks do. 20
+random splits, CPU, 7 minutes.
+
+| File (points = 0.00001, mean over 20 splits) | Gain on P (public) | Gain on Q (private) | Q up |
+| --- | --- | --- | --- |
+| board blend C=0.001 | -91.9 (SD 26.8) | -113.2 (SD 4.7) | 0 of 20 |
+| + continuation | -199.0 (SD 40.8) | -229.8 (SD 8.6) | 0 of 20 |
+| board blend C=0.01 | +35.8 (SD 22.6) | -47.5 (SD 11.4) | 0 of 20 |
+| + continuation | +23.8 (SD 31.0) | -97.0 (SD 19.3) | 0 of 20 |
+| board blend C=0.1 | +196.7 (SD 39.8) | -73.6 (SD 23.7) | 0 of 20 |
+| + continuation | +225.8 (SD 52.6) | -165.1 (SD 42.3) | 0 of 20 |
+| board blend C=1 | +360.7 (SD 58.8) | -203.6 (SD 38.6) | 0 of 20 |
+| + continuation | +365.3 (SD 71.7) | -458.7 (SD 76.7) | 0 of 20 |
+
+The base itself: P minus Q AUC has an SD of 293 points across splits (P from 0.94819 to 0.95839, Q 0.95217 to
+0.95310). That is the public/private shake-up of an honest file, wider than the whole public top.
+
+Reading: every blend fitted on the public rows lost on the private rows, in all 20 splits and at every strength,
+and the continuation step roughly doubled the loss. Fitting on P's labels is more than 244 public scores can
+reveal, so these sizes are an upper bound for a real board model; the sign is the finding. The board model's own
+public climb (about +0.0035 from honest stacks near 0.9535 to 0.95687-0.95725) sits in the range of the C=0.1 to
+C=1 rows, whose private losses are 0.0007 to 0.0020. Our finals stay `stack_pub4wz` and `stack_pubwz`, chosen
+without the public board. The honest-CV notebook (version 4) reports this table.
