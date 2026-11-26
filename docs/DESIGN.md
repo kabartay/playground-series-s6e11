@@ -1326,6 +1326,12 @@ label leaves every encoded frame unchanged. Before committing, the same commands
 | sarveshchhetri | five models, six combiners, PR-AUC | ROC 0.948 | stacking +0.0004 PR-AUC over the best single; matches D11 |
 | mzishran | three default GBDTs, rank blend on a 3-fold split | not comparable | baseline |
 
+Update 2026-11-26 (owner's links, new versions): monya1 (0.95725, copied byte for byte by dennis6886), daoviet
+(about 0.9572), mzishran and areebbb (0.95701) all extrapolate step AG along the difference of two earlier board
+files (`AG + 0.45 x clip(AG - AC)`, `AG + 0.65 x (AG - asteriospanoras 0.95552)`, an 80/20 mix of the two), then
+re-apply zones 1-4. None has out-of-fold predictions; daoviet's new version drops its CV Fortress line. Board
+steering again, not used.
+
 Reading: no published, checkable file beats 0.95273 on our folds. The public board's top is board steering, which
 explains a falling public rank without saying anything about the private rows.
 
